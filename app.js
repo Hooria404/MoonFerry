@@ -378,34 +378,72 @@ function addTask() {
 }
 
 // ========== 专注计时与历史记录 ==========
-function renderPomodoro() {
+
+function updatePomodoroDigits() {
   const p = appData.pomodoro;
   const timeStr = formatTime(Math.max(0, p.current));
+
   const homeTime = document.getElementById('pomTime');
+  const bigTime = document.getElementById('timerBigTime');
+  const petClock = document.getElementById('petClock');
+
+  if (homeTime) homeTime.textContent = timeStr;
+  if (bigTime) bigTime.textContent = timeStr;
+  if (petClock) petClock.textContent = timeStr;
+}
+
+function renderPomodoro() {
+  const p = appData.pomodoro;
+
+  updatePomodoroDigits();
+
   const homeStatus = document.getElementById('pomStatus');
   const homeBtn = document.getElementById('pomStart');
-  if (homeTime) homeTime.textContent = timeStr;
-  if (homeStatus) homeStatus.textContent = p.running ? '正在专注，慢慢来…' : (p.sessionSeconds > 0 ? '本次已暂停' : '准备就绪');
-  if (homeBtn) homeBtn.textContent = p.running ? '暂停一下' : (p.sessionSeconds > 0 ? '继续专注' : '开始专注');
 
-  const bigTime = document.getElementById('timerBigTime');
+  if (homeStatus) {
+    homeStatus.textContent = p.running
+      ? '正在专注…'
+      : (p.sessionSeconds > 0 ? '本次已暂停' : '准备就绪');
+  }
+
+  if (homeBtn) {
+    homeBtn.textContent = p.running
+      ? '暂停一下'
+      : (p.sessionSeconds > 0 ? '继续专注' : '开始专注');
+  }
+
   const toggleBtn = document.getElementById('timerToggleBtn');
-  if (bigTime) bigTime.textContent = timeStr;
-  if (toggleBtn) toggleBtn.textContent = p.running ? '暂停' : (p.sessionSeconds > 0 ? '继续专注' : '开始专注');
-  document.querySelectorAll('.timer-mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === p.mode));
+
+  if (toggleBtn) {
+    toggleBtn.textContent = p.running
+      ? '暂停'
+      : (p.sessionSeconds > 0 ? '继续' : '开始');
+  }
+
+  document.querySelectorAll('.timer-mode-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.mode === p.mode);
+  });
+
   const finishBtn = document.getElementById('timerFinishBtn');
-  if (finishBtn) finishBtn.disabled = (p.sessionSeconds || 0) <= 0;
+  if (finishBtn) {
+    finishBtn.disabled = (p.sessionSeconds || 0) <= 0;
+  }
+
   const resetBtn = document.getElementById('timerResetBtn');
-  if (resetBtn) resetBtn.disabled = p.running;
-  const state = document.getElementById('timerStatePill');
-  if (state) state.textContent = p.running ? '正在专注 · 小球正轻轻落下' : (p.sessionSeconds > 0 ? '已暂停 · 你的进度还在这里' : '准备好了 · 给自己一点安静时间');
-  const support = document.getElementById('timerSupportText');
-  if (support) support.textContent = p.running ? '不用着急，专注于眼前这一小步。' : '暂停不会结算；结束本次专注才会保存历史。重置只清空本次进度。';
+  if (resetBtn) {
+    resetBtn.disabled = p.running;
+  }
+
   const petClock = document.getElementById('petClock');
-  if (petClock) { petClock.style.display = p.running ? 'block' : 'none'; petClock.textContent = timeStr; }
+  if (petClock) {
+    petClock.style.display = p.running ? 'block' : 'none';
+  }
+
+  // 只有状态改变时才更新历史
   renderFocusHistory();
-  renderCharts();
   renderPet();
+
+  // 注意：这里绝对不要调用 renderCharts()
 }
 
 
@@ -477,35 +515,38 @@ function startTimer() {
   }, 5000);
 
   // 专注计时：与小球动画完全分开
-  timerInterval = setInterval(() => {
-    if (!p.running) return;
+  
+timerInterval = setInterval(() => {
+  if (!p.running) return;
 
-    syncFocusElapsed();
+  const elapsed = syncFocusElapsed();
 
-    // 倒计时结束
-    if (p.mode === 'countdown' && p.current <= 0) {
-      p.current = 0;
-      p.running = false;
-      p.lastTick = null;
+  // 只更新数字，不重新渲染整个界面
+  if (elapsed > 0) {
+    updatePomodoroDigits();
+    save();
+  }
 
-      stopFocusIntervals();
+  // 倒计时结束
+  if (p.mode === 'countdown' && p.current <= 0) {
+    p.current = 0;
+    p.running = false;
+    p.lastTick = null;
 
-      // 自动完成并保存历史
-      saveFocusSession('completed');
+    stopFocusIntervals();
 
-      p.current = p.target;
+    saveFocusSession('completed');
 
-      save();
-      renderPomodoro();
-
-      alert('这一段专注完成啦！这份认真已经保存到历史记录。休息一下吧。');
-      return;
-    }
+    p.current = p.target;
 
     save();
     renderPomodoro();
+    renderCharts();
 
-  }, 250);
+    alert('本次专注已完成。');
+  }
+}, 250);
+
 
   renderPomodoro();
 }
@@ -1117,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = appData.pomodoro;
       if (p.mode === tab.dataset.mode) return;
       if ((p.running || (p.sessionSeconds || 0) > 0) && !confirm('切换模式会结束并清空当前未保存的计时进度（不会计入历史），确定切换吗？')) return;
-      clearInterval(timerInterval);
+    stopFocusIntervals();
       p.running = false;
       p.lastTick = null;
       p.sessionSeconds = 0;

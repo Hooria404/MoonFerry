@@ -847,3 +847,46 @@ button { -webkit-tap-highlight-color: transparent; }
     opacity: 0;
   }
 }
+
+/* 全屏专注：简洁布局，不显示多余说明 */
+#timerOverlay {
+  overflow: hidden;
+}
+
+#timerOverlay .timer-container {
+  max-height: 100vh;
+  overflow-y: auto;
+  justify-content: center;
+  padding: 28px 20px;
+  scrollbar-width: none;
+}
+
+#timerOverlay .timer-container::-webkit-scrollbar {
+  display: none;
+}
+
+#timerOverlay .timer-mode-tabs {
+  margin-bottom: 28px;
+}
+
+#timerOverlay .timer-big-time {
+  margin-bottom: 24px;
+}
+
+#timerOverlay .timer-action-row {
+  margin-top: 12px;
+}
+
+#timerOverlay .focus-history-panel {
+  margin-top: 22px;
+}
+
+#timerOverlay .focus-history-empty {
+  min-height: 8px;
+  padding: 0;
+}
+
+#timerOverlay .timer-state-pill,
+#timerOverlay .timer-support-text {
+  display: none !important;
+}
