@@ -202,13 +202,22 @@
     
     <div class="timer-big-time" id="timerBigTime">25:00</div>
     
+    <div class="timer-state-pill" id="timerStatePill">准备好了 · 给自己一点安静时间</div>
     <div class="timer-controls">
-      <button class="btn-round" id="timerMinus" style="width:48px;height:48px;font-size:24px;">-</button>
-      <button class="btn-primary" id="timerToggleBtn" style="width:120px;height:48px;font-size:16px;border-radius:24px;">开始专注</button>
-      <button class="btn-round" id="timerPlus" style="width:48px;height:48px;font-size:24px;">+</button>
+      <button class="btn-round" id="timerMinus" aria-label="减少五分钟" style="width:48px;height:48px;font-size:24px;">−</button>
+      <button class="btn-primary" id="timerToggleBtn" style="width:132px;height:48px;font-size:16px;border-radius:24px;">开始专注</button>
+      <button class="btn-round" id="timerPlus" aria-label="增加五分钟" style="width:48px;height:48px;font-size:24px;">＋</button>
     </div>
-    
-    <button class="btn-link" id="timerCloseBtn" style="margin-top:50px;font-size:15px;color:var(--text-light);">↓ 退出专注模式</button>
+    <div class="timer-action-row">
+      <button class="timer-finish-btn" id="timerFinishBtn" disabled>结束本次专注</button>
+      <button class="timer-reset-btn" id="timerResetBtn">重置计时</button>
+    </div>
+    <p class="timer-support-text" id="timerSupportText">开始后每 5 秒，会有一颗豆沙色小球轻轻飘落。</p>
+    <div class="focus-history-panel">
+      <div class="focus-history-heading"><strong>🌷 我的专注记录</strong><span id="focusHistoryTotal">累计 0 分钟</span></div>
+      <div class="focus-history-list" id="focusHistoryList"><div class="focus-history-empty">每一次认真投入，都会被好好记下来。</div></div>
+    </div>
+    <button class="btn-link" id="timerCloseBtn" style="margin-top:24px;font-size:15px;color:var(--text-light);">↓ 收起专注界面（计时继续）</button>
   </div>
 </div>
 

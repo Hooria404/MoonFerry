@@ -376,67 +376,66 @@ function addTask() {
   titleEl.focus();
 }
 
-// ========== 强大的番茄钟 & 专注模式 ==========
+// ========== 专注计时与历史记录 ==========
 function renderPomodoro() {
   const p = appData.pomodoro;
   const timeStr = formatTime(Math.max(0, p.current));
-  const hTime = document.getElementById('pomTime');
-  const hStatus = document.getElementById('pomStatus');
-  const hBtn = document.getElementById('pomStart');
-  if (hTime) hTime.textContent = timeStr;
-  if (hStatus) hStatus.textContent = p.running ? '正在专注，慢慢来…' : (p.current !== (p.mode === 'countdown' ? p.target : 0) ? '已暂停，可以继续' : '准备就绪');
-  if (hBtn) hBtn.textContent = p.running ? '暂停一下' : (p.current !== (p.mode === 'countdown' ? p.target : 0) ? '继续专注' : '开始专注');
+  const homeTime = document.getElementById('pomTime');
+  const homeStatus = document.getElementById('pomStatus');
+  const homeBtn = document.getElementById('pomStart');
+  if (homeTime) homeTime.textContent = timeStr;
+  if (homeStatus) homeStatus.textContent = p.running ? '正在专注，慢慢来…' : (p.sessionSeconds > 0 ? '本次已暂停' : '准备就绪');
+  if (homeBtn) homeBtn.textContent = p.running ? '暂停一下' : (p.sessionSeconds > 0 ? '继续专注' : '开始专注');
 
-  const bTime = document.getElementById('timerBigTime');
-  const bBtn = document.getElementById('timerToggleBtn');
-  if (bTime) bTime.textContent = timeStr;
-  if (bBtn) bBtn.textContent = p.running ? '暂停' : (p.current !== (p.mode === 'countdown' ? p.target : 0) ? '继续' : '开始专注');
+  const bigTime = document.getElementById('timerBigTime');
+  const toggleBtn = document.getElementById('timerToggleBtn');
+  if (bigTime) bigTime.textContent = timeStr;
+  if (toggleBtn) toggleBtn.textContent = p.running ? '暂停' : (p.sessionSeconds > 0 ? '继续专注' : '开始专注');
   document.querySelectorAll('.timer-mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === p.mode));
   const finishBtn = document.getElementById('timerFinishBtn');
-  if (finishBtn) finishBtn.disabled = !p.running && (p.mode === 'countdown' ? p.current === p.target : p.current === 0);
+  if (finishBtn) finishBtn.disabled = (p.sessionSeconds || 0) <= 0;
+  const resetBtn = document.getElementById('timerResetBtn');
+  if (resetBtn) resetBtn.disabled = p.running || (p.sessionSeconds || 0) <= 0 && p.current === (p.mode === 'countdown' ? p.target : 0);
+  const state = document.getElementById('timerStatePill');
+  if (state) state.textContent = p.running ? '正在专注 · 小球正轻轻落下' : (p.sessionSeconds > 0 ? '已暂停 · 你的进度还在这里' : '准备好了 · 给自己一点安静时间');
   const support = document.getElementById('timerSupportText');
-  if (support) support.textContent = p.running ? '此刻只需要专注眼前这一件事。' : '暂停不会清空进度；结束时会为你保存真实学习时长。';
-
+  if (support) support.textContent = p.running ? '不用着急，专注于眼前这一小步。' : '暂停不会结算；结束本次专注才会保存历史。重置只清空本次进度。';
   const petClock = document.getElementById('petClock');
-  if (petClock) {
-    petClock.style.display = p.running ? 'block' : 'none';
-    petClock.textContent = timeStr;
-  }
+  if (petClock) { petClock.style.display = p.running ? 'block' : 'none'; petClock.textContent = timeStr; }
+  renderFocusHistory();
   renderCharts();
   renderPet();
 }
 
 function startTimer() {
-  if (appData.pomodoro.running) return;
   const p = appData.pomodoro;
+  if (p.running) return;
   if (p.mode === 'countdown' && p.current <= 0) p.current = p.target;
+  if (!p.sessionStartedAt) p.sessionStartedAt = new Date().toISOString();
   p.running = true;
   p.lastTick = Date.now();
   save();
   clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     const now = Date.now();
-    const elapsed = Math.max(1, Math.floor((now - (p.lastTick || now)) / 1000));
+    const elapsed = Math.floor((now - (p.lastTick || now)) / 1000);
+    if (elapsed < 1) return;
     p.lastTick = now;
-    if (p.mode === 'countdown') {
-      p.current = Math.max(0, p.current - elapsed);
-      if (p.current === 0) {
-        p.running = false;
-        clearInterval(timerInterval);
-        const completed = Math.floor(p.target / 60);
-        recordPomodoroTime(completed);
-        p.current = p.target;
-        save();
-        renderPomodoro();
-        alert('这一段专注完成啦！休息一下，喝口水吧。');
-        return;
-      }
-    } else {
-      p.current += elapsed;
+    const before = Number(p.sessionSeconds) || 0;
+    p.sessionSeconds = before + elapsed;
+    if (p.mode === 'countdown') p.current = Math.max(0, p.current - elapsed);
+    else p.current += elapsed;
+    // 按累计专注秒数触发，暂停/继续也不会改变每 5 秒一次的节奏
+    if (Math.floor(p.sessionSeconds / 5) > Math.floor(before / 5)) createFallingBall();
+    if (p.mode === 'countdown' && p.current === 0) {
+      p.running = false;
+      clearInterval(timerInterval);
+      saveFocusSession('completed');
+      p.current = p.target;
+      alert('这一段专注完成啦！这份认真已经保存到历史记录。休息一下吧。');
     }
-    if (p.current % 10 < elapsed) save();
+    if (p.sessionSeconds % 10 < elapsed || !p.running) save();
     renderPomodoro();
-    if (p.running && p.current % 5 === 0) createFallingBall();
   }, 500);
   renderPomodoro();
 }
@@ -444,7 +443,14 @@ function startTimer() {
 function pauseTimer() {
   const p = appData.pomodoro;
   if (!p.running) return;
-  // 暂停只停止计时，不结算、不重置；再次开始可从当前进度继续。
+  // 补齐暂停瞬间尚未进入下一次 interval 的时间
+  const elapsed = Math.max(0, Math.floor((Date.now() - (p.lastTick || Date.now())) / 1000));
+  if (elapsed) {
+    p.sessionSeconds = (p.sessionSeconds || 0) + elapsed;
+    if (p.mode === 'countdown') p.current = Math.max(0, p.current - elapsed);
+    else p.current += elapsed;
+    if (Math.floor(p.sessionSeconds / 5) > Math.floor((p.sessionSeconds - elapsed) / 5)) createFallingBall();
+  }
   p.running = false;
   p.lastTick = null;
   clearInterval(timerInterval);
@@ -454,42 +460,58 @@ function pauseTimer() {
 
 function finishTimer() {
   const p = appData.pomodoro;
-  if (!p.running && (p.mode === 'countdown' ? p.current === p.target : p.current === 0)) return;
-  if (p.running && p.mode === 'countdown') {
-    const now = Date.now();
-    const elapsed = Math.max(0, Math.floor((now - (p.lastTick || now)) / 1000));
-    p.current = Math.max(0, p.current - elapsed);
+  if (p.running) {
+    const elapsed = Math.max(0, Math.floor((Date.now() - (p.lastTick || Date.now())) / 1000));
+    if (elapsed) {
+      p.sessionSeconds = (p.sessionSeconds || 0) + elapsed;
+      if (p.mode === 'countdown') p.current = Math.max(0, p.current - elapsed);
+      else p.current += elapsed;
+    }
   }
+  if ((p.sessionSeconds || 0) <= 0) return;
   p.running = false;
   p.lastTick = null;
   clearInterval(timerInterval);
-  const seconds = p.mode === 'countdown' ? p.target - p.current : p.current;
-  const minutes = Math.floor(Math.max(0, seconds) / 60);
-  if (minutes > 0) recordPomodoroTime(minutes);
+  saveFocusSession('finished');
   p.current = p.mode === 'countdown' ? p.target : 0;
   save();
   renderPomodoro();
-  const overlay = document.getElementById('timerOverlay');
-  if (overlay) overlay.classList.remove('show');
-  if (minutes > 0) alert('已为你记录 ' + minutes + ' 分钟专注。辛苦啦！');
-  else alert('这次专注时间较短，没有计入分钟统计。下次继续就好。');
+  alert('本次专注已结束，记录已保存。辛苦啦！');
 }
 
 function resetTimer() {
-  clearInterval(timerInterval);
   const p = appData.pomodoro;
+  if (p.running) return;
+  if ((p.sessionSeconds || 0) > 0 && !confirm('重置会清空本次尚未保存的专注进度，不会写入历史记录。确定重置吗？')) return;
+  clearInterval(timerInterval);
   p.running = false;
   p.lastTick = null;
+  p.sessionSeconds = 0;
+  p.sessionStartedAt = null;
   p.current = p.mode === 'countdown' ? p.target : 0;
+  const balls = document.getElementById('ballsBg');
+  if (balls) balls.innerHTML = '';
   save();
   renderPomodoro();
 }
 
-function recordPomodoroTime(minutes) {
-  const rounded = Math.max(0, Math.floor(Number(minutes) || 0));
-  if (rounded <= 0) return;
-  const rec = ensureRecord(getTodayStr());
-  rec.pom = (rec.pom || 0) + rounded;
+function saveFocusSession(status) {
+  const p = appData.pomodoro;
+  const seconds = Math.max(0, Number(p.sessionSeconds) || 0);
+  if (!appData.focusSessions) appData.focusSessions = [];
+  if (seconds > 0) {
+    const started = p.sessionStartedAt || new Date(Date.now() - seconds * 1000).toISOString();
+    const ended = new Date().toISOString();
+    appData.focusSessions.unshift({ id: 'focus_' + Date.now(), date: started.slice(0,10), startedAt: started, endedAt: ended, seconds, minutes: Math.floor(seconds / 60), mode: p.mode, status });
+    // 保留最近 200 条，避免本地数据无限增长
+    appData.focusSessions = appData.focusSessions.slice(0, 200);
+    const rec = ensureRecord(started.slice(0,10));
+    rec.pom = (rec.pom || 0) + Math.floor(seconds / 60);
+  }
+  p.sessionSeconds = 0;
+  p.sessionStartedAt = null;
+  p.running = false;
+  p.lastTick = null;
   save();
   renderDashboardMetrics();
   renderTrend();
@@ -497,73 +519,43 @@ function recordPomodoroTime(minutes) {
   renderHeatmap();
 }
 
-// ✅ 新增：生成掉落小球的方法
+function renderFocusHistory() {
+  const list = document.getElementById('focusHistoryList');
+  const totalEl = document.getElementById('focusHistoryTotal');
+  if (!list || !totalEl) return;
+  const sessions = appData.focusSessions || [];
+  const totalSeconds = sessions.reduce((sum, item) => sum + (Number(item.seconds) || (Number(item.minutes) || 0) * 60), 0);
+  totalEl.textContent = '累计 ' + Math.floor(totalSeconds / 60) + ' 分钟';
+  if (!sessions.length) {
+    list.innerHTML = '<div class="focus-history-empty">每一次认真投入，都会被好好记下来。</div>';
+    return;
+  }
+  list.innerHTML = sessions.slice(0, 8).map(item => {
+    const start = new Date(item.startedAt);
+    const dateText = start.toLocaleDateString('zh-CN', { month:'2-digit', day:'2-digit' });
+    const timeText = start.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+    const mins = Math.floor((Number(item.seconds) || (Number(item.minutes)||0)*60) / 60);
+    const statusText = item.status === 'completed' ? '目标完成' : '主动结束';
+    const durationText = mins > 0 ? (mins >= 60 ? Math.floor(mins/60) + '小时' + (mins%60 ? mins%60 + '分' : '') : mins + ' 分钟') : Math.max(1, Math.floor((Number(item.seconds)||0))) + ' 秒';
+    return `<div class="focus-history-item"><span class="focus-history-dot"></span><div class="focus-history-main"><strong>${dateText} · ${timeText}</strong><small>${statusText}</small></div><b>${durationText}</b></div>`;
+  }).join('');
+}
+
 function createFallingBall() {
   const container = document.getElementById('ballsBg');
-  if (!container) return;
-
-  // 限制屏幕上最多同时存在 30 个小球，防止过度消耗性能
-  if (container.childElementCount > 30) return;
-
+  if (!container || !document.getElementById('timerOverlay')?.classList.contains('show')) return;
+  if (container.childElementCount >= 24) return;
   const ball = document.createElement('div');
   ball.className = 'fall-ball';
-
-  // 随机大小 10px ~ 30px
-  const size = Math.random() * 20 + 10;
-  // 随机水平位置 0% ~ 100%
-  const left = Math.random() * 100;
-  // 随机下落时间 4秒 ~ 8秒
-  const duration = Math.random() * 4 + 4;
-  // 随机颜色：豆沙色、浅色、或者稍微偏透明的白色
-  const colors = ['var(--primary)', 'var(--primary-light)', 'var(--accent)'];
-  const color = colors[Math.floor(Math.random() * colors.length)];
-
+  const size = Math.random() * 13 + 9;
+  const duration = Math.random() * 3 + 6;
   ball.style.width = size + 'px';
   ball.style.height = size + 'px';
-  ball.style.left = left + 'vw';
-  ball.style.backgroundColor = color;
+  ball.style.left = (Math.random() * 96 + 2) + 'vw';
+  ball.style.background = 'rgba(200,139,117,' + (Math.random() * .22 + .28) + ')';
   ball.style.animationDuration = duration + 's';
-
   container.appendChild(ball);
-
-  // 动画结束后（掉落到底部），自动删除这个 DOM，防止内存泄漏
-  setTimeout(() => {
-    if (ball.parentNode) {
-      ball.parentNode.removeChild(ball);
-    }
-  }, duration * 1000);
-}
-function pauseTimer() {
-  const p = appData.pomodoro;
-  if (!p.running) return;
-  p.running = false;
-  clearInterval(timerInterval);
-  
-  if (p.mode === 'countup') {
-    recordPomodoroTime(p.current / 60);
-    p.current = 0;
-  } else {
-    recordPomodoroTime((p.target - p.current) / 60);
-    p.current = p.target;
-  }
-  
-  save(); renderPomodoro();
-}
-
-function resetTimer() {
-  clearInterval(timerInterval);
-  const p = appData.pomodoro;
-  p.running = false;
-  p.current = p.mode === 'countdown' ? p.target : 0;
-  save(); renderPomodoro();
-}
-
-function recordPomodoroTime(minutes) {
-  if (minutes <= 0) return;
-  const today = getTodayStr();
-  const rec = ensureRecord(today);
-  rec.pom = (rec.pom || 0) + Math.floor(minutes);
-  save();
+  setTimeout(() => ball.remove(), duration * 1000 + 300);
 }
 
 // ========== 图表 ==========
@@ -919,6 +911,12 @@ document.addEventListener('DOMContentLoaded', () => {
   load();
   if (!appData.tasks) appData.tasks = [];
   if (!appData.records) appData.records = {};
+  if (!Array.isArray(appData.focusSessions)) appData.focusSessions = [];
+  if (!appData.pomodoro) appData.pomodoro = { running:false, mode:'countdown', target:1500, current:1500 };
+  appData.pomodoro.running = false; // 刷新页面后不自动续跑，保留未结算进度
+  appData.pomodoro.lastTick = null;
+  if (typeof appData.pomodoro.sessionSeconds !== 'number') appData.pomodoro.sessionSeconds = 0;
+  if (!('sessionStartedAt' in appData.pomodoro)) appData.pomodoro.sessionStartedAt = null;
   if (!appData.pet) appData.pet = { enabled: false, defaultImg: '', focusImg: '', position: null };
   if (!appData.settings) appData.settings = { greeting: '' };
 
@@ -979,15 +977,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (appData.pomodoro.running) pauseTimer(); else startTimer();
   };
   document.getElementById('timerFinishBtn').onclick = finishTimer;
+  document.getElementById('timerResetBtn').onclick = resetTimer;
   
   document.querySelectorAll('.timer-mode-tab').forEach(tab => {
     tab.onclick = () => {
-      if (appData.pomodoro.running) {
-        if(!confirm('正在计时中，切换模式将重新计时，确定吗？')) return;
-      }
-      resetTimer();
-      appData.pomodoro.mode = tab.dataset.mode;
-      appData.pomodoro.current = appData.pomodoro.mode === 'countdown' ? appData.pomodoro.target : 0;
+      const p = appData.pomodoro;
+      if (p.mode === tab.dataset.mode) return;
+      if ((p.running || (p.sessionSeconds || 0) > 0) && !confirm('切换模式会结束并清空当前未保存的计时进度（不会计入历史），确定切换吗？')) return;
+      clearInterval(timerInterval);
+      p.running = false;
+      p.lastTick = null;
+      p.sessionSeconds = 0;
+      p.sessionStartedAt = null;
+      p.mode = tab.dataset.mode;
+      p.current = p.mode === 'countdown' ? p.target : 0;
+      save();
       renderPomodoro();
     };
   });

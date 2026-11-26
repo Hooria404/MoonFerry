@@ -756,3 +756,24 @@ button { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; }
 }
+
+/* 全屏专注：清晰的操作层级与历史记录 */
+.timer-state-pill { margin:-20px 0 24px; padding:8px 16px; border-radius:22px; background:rgba(255,253,249,.78); border:1px solid var(--border); color:var(--text-light); font-size:13px; }
+.timer-action-row { display:flex; gap:12px; justify-content:center; align-items:center; margin-top:18px; }
+.timer-action-row .timer-finish-btn { margin-top:0; min-width:142px; }
+.timer-reset-btn { padding:10px 19px; border:1px solid var(--border); border-radius:24px; background:transparent; color:var(--text-light); cursor:pointer; font-size:13px; transition:all .2s ease; }
+.timer-reset-btn:hover:not(:disabled) { background:var(--pink); color:var(--text); }
+.timer-reset-btn:disabled { opacity:.35; cursor:not-allowed; }
+.focus-history-panel { width:min(440px, calc(100vw - 36px)); margin-top:28px; padding:16px 18px; border-radius:18px; border:1px solid rgba(232,220,200,.8); background:rgba(255,253,249,.72); text-align:left; box-shadow:var(--shadow); }
+.focus-history-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--text); font-size:13px; }
+.focus-history-heading span { color:var(--text-light); font-size:11px; }
+.focus-history-list { max-height:150px; overflow:auto; margin-top:10px; }
+.focus-history-empty { padding:13px 0 5px; color:var(--text-light); font-size:12px; text-align:center; }
+.focus-history-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid rgba(232,220,200,.65); }
+.focus-history-dot { width:8px; height:8px; border-radius:50%; background:var(--primary); box-shadow:0 0 0 4px var(--pink); flex:none; }
+.focus-history-main { display:flex; flex-direction:column; gap:2px; flex:1; }
+.focus-history-main strong { color:var(--text); font-size:12px; font-weight:600; }
+.focus-history-main small { color:var(--text-light); font-size:10px; }
+.focus-history-item b { color:var(--primary); font-size:13px; white-space:nowrap; }
+@media(max-height:760px) { .timer-mode-tabs { margin-bottom:20px; } .timer-big-time { font-size:clamp(58px,12vh,96px); margin-bottom:22px; } .focus-history-panel { margin-top:16px; } .focus-history-list { max-height:100px; } #timerCloseBtn { margin-top:14px !important; } }
+@media(max-width:600px) { .timer-action-row { gap:7px; } .timer-action-row .timer-finish-btn,.timer-reset-btn { padding:9px 12px; font-size:12px; min-width:0; } .focus-history-panel { margin-top:18px; padding:13px 14px; } }
