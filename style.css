@@ -456,3 +456,43 @@ body {
   z-index: 1;
   position: relative;
 }
+/* ================== 专注掉落小球动画 ================== */
+.balls-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  pointer-events: none; /* 让鼠标点击穿透，不挡按钮 */
+  z-index: 1; /* 放在最底层 */
+}
+
+.timer-container {
+  z-index: 2; /* 保证文字和按钮在小球上面 */
+  position: relative;
+}
+
+.fall-ball {
+  position: absolute;
+  top: -40px;
+  border-radius: 50%;
+  opacity: 0;
+  /* 动画配置：下落 + 左右摇摆 */
+  animation: fallDown linear forwards;
+}
+
+@keyframes fallDown {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8; /* 出现时的透明度 */
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    /* 掉落到屏幕底部，并随机偏移一点位置 */
+    transform: translateY(105vh) translateX(40px);
+    opacity: 0;
+  }
+}

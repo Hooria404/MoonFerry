@@ -341,11 +341,50 @@ function startTimer() {
     if (!p.running) clearInterval(timerInterval);
     if (p.current % 10 === 0) save();
     renderPomodoro();
+    // ✅ 新增：每秒掉落逻辑（每 5 秒掉落一个小球）
+    if (p.running && p.current % 5 === 0) {
+      createFallingBall();
+    }
   }, 1000);
   
   renderPomodoro();
 }
+// ✅ 新增：生成掉落小球的方法
+function createFallingBall() {
+  const container = document.getElementById('ballsBg');
+  if (!container) return;
 
+  // 限制屏幕上最多同时存在 30 个小球，防止过度消耗性能
+  if (container.childElementCount > 30) return;
+
+  const ball = document.createElement('div');
+  ball.className = 'fall-ball';
+
+  // 随机大小 10px ~ 30px
+  const size = Math.random() * 20 + 10;
+  // 随机水平位置 0% ~ 100%
+  const left = Math.random() * 100;
+  // 随机下落时间 4秒 ~ 8秒
+  const duration = Math.random() * 4 + 4;
+  // 随机颜色：豆沙色、浅色、或者稍微偏透明的白色
+  const colors = ['var(--primary)', 'var(--primary-light)', 'var(--accent)'];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+
+  ball.style.width = size + 'px';
+  ball.style.height = size + 'px';
+  ball.style.left = left + 'vw';
+  ball.style.backgroundColor = color;
+  ball.style.animationDuration = duration + 's';
+
+  container.appendChild(ball);
+
+  // 动画结束后（掉落到底部），自动删除这个 DOM，防止内存泄漏
+  setTimeout(() => {
+    if (ball.parentNode) {
+      ball.parentNode.removeChild(ball);
+    }
+  }, duration * 1000);
+}
 function pauseTimer() {
   const p = appData.pomodoro;
   if (!p.running) return;
