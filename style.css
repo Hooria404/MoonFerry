@@ -777,3 +777,73 @@ button { -webkit-tap-highlight-color: transparent; }
 .focus-history-item b { color:var(--primary); font-size:13px; white-space:nowrap; }
 @media(max-height:760px) { .timer-mode-tabs { margin-bottom:20px; } .timer-big-time { font-size:clamp(58px,12vh,96px); margin-bottom:22px; } .focus-history-panel { margin-top:16px; } .focus-history-list { max-height:100px; } #timerCloseBtn { margin-top:14px !important; } }
 @media(max-width:600px) { .timer-action-row { gap:7px; } .timer-action-row .timer-finish-btn,.timer-reset-btn { padding:9px 12px; font-size:12px; min-width:0; } .focus-history-panel { margin-top:18px; padding:13px 14px; } }
+
+/* =====================================
+   StudyRoom 全屏专注 · 豆沙色飘落小球
+   ===================================== */
+
+#timerOverlay {
+  isolation: isolate;
+}
+
+#ballsBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+#timerOverlay .timer-container {
+  position: relative;
+  z-index: 2;
+}
+
+/* 豆沙色小球 */
+#timerOverlay .fall-ball {
+  position: absolute;
+  top: -24px;
+  display: block;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      rgba(255,245,239,.95),
+      rgba(200,139,117,.78) 58%,
+      rgba(200,139,117,.48)
+    );
+
+  box-shadow: 0 3px 14px rgba(200,139,117,.14);
+
+  opacity: 0;
+
+  animation-name: studyroomBallFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+
+  will-change: transform, opacity;
+}
+
+/* 从屏幕上方自然飘落 */
+@keyframes studyroomBallFall {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: .72;
+  }
+
+  85% {
+    opacity: .58;
+  }
+
+  100% {
+    transform:
+      translate3d(var(--fall-drift, 0px), 110vh, 0);
+    opacity: 0;
+  }
+}

@@ -24,6 +24,7 @@ let appData = {
 };
 
 let timerInterval = null;
+let ballInterval = null;
 let chartRing = null, chartBar = null, chartTrend = null;
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
@@ -395,7 +396,7 @@ function renderPomodoro() {
   const finishBtn = document.getElementById('timerFinishBtn');
   if (finishBtn) finishBtn.disabled = (p.sessionSeconds || 0) <= 0;
   const resetBtn = document.getElementById('timerResetBtn');
-  if (resetBtn) resetBtn.disabled = p.running || (p.sessionSeconds || 0) <= 0 && p.current === (p.mode === 'countdown' ? p.target : 0);
+  if (resetBtn) resetBtn.disabled = p.running;
   const state = document.getElementById('timerStatePill');
   if (state) state.textContent = p.running ? '正在专注 · 小球正轻轻落下' : (p.sessionSeconds > 0 ? '已暂停 · 你的进度还在这里' : '准备好了 · 给自己一点安静时间');
   const support = document.getElementById('timerSupportText');
@@ -407,93 +408,200 @@ function renderPomodoro() {
   renderPet();
 }
 
+
+// ========== 专注计时控制 ==========
+
+// 同时清除计时器和小球生成器
+function stopFocusIntervals() {
+  if (timerInterval) stopFocusIntervals();
+  if (ballInterval) clearInterval(ballInterval);
+
+  timerInterval = null;
+  ballInterval = null;
+}
+
+// 根据真实经过时间更新计时，避免计时器延迟造成时间错误
+function syncFocusElapsed(now = Date.now()) {
+  const p = appData.pomodoro;
+
+  if (!p.running || !p.lastTick) return 0;
+
+  const elapsed = Math.floor((now - p.lastTick) / 1000);
+
+  if (elapsed <= 0) return 0;
+
+  // 保留不足一秒的时间，避免反复取整丢失时间
+  p.lastTick += elapsed * 1000;
+
+  p.sessionSeconds = (Number(p.sessionSeconds) || 0) + elapsed;
+
+  if (p.mode === 'countdown') {
+    p.current = Math.max(0, p.current - elapsed);
+  } else {
+    p.current += elapsed;
+  }
+
+  return elapsed;
+}
+
+
+// 1. 开始 / 继续专注
 function startTimer() {
   const p = appData.pomodoro;
+
   if (p.running) return;
-  if (p.mode === 'countdown' && p.current <= 0) p.current = p.target;
-  if (!p.sessionStartedAt) p.sessionStartedAt = new Date().toISOString();
+
+  if (p.mode === 'countdown' && p.current <= 0) {
+    p.current = p.target;
+  }
+
+  // 只有第一次开始时才记录开始时间
+  if (!p.sessionStartedAt) {
+    p.sessionStartedAt = new Date().toISOString();
+  }
+
   p.running = true;
   p.lastTick = Date.now();
+
   save();
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    const now = Date.now();
-    const elapsed = Math.floor((now - (p.lastTick || now)) / 1000);
-    if (elapsed < 1) return;
-    p.lastTick = now;
-    const before = Number(p.sessionSeconds) || 0;
-    p.sessionSeconds = before + elapsed;
-    if (p.mode === 'countdown') p.current = Math.max(0, p.current - elapsed);
-    else p.current += elapsed;
-    // 按累计专注秒数触发，暂停/继续也不会改变每 5 秒一次的节奏
-    if (Math.floor(p.sessionSeconds / 5) > Math.floor(before / 5)) createFallingBall();
-    if (p.mode === 'countdown' && p.current === 0) {
-      p.running = false;
-      clearInterval(timerInterval);
-      saveFocusSession('completed');
-      p.current = p.target;
-      alert('这一段专注完成啦！这份认真已经保存到历史记录。休息一下吧。');
+  stopFocusIntervals();
+
+  // 小球动画：独立运行，每 5 秒生成一颗
+  ballInterval = setInterval(() => {
+    if (
+      p.running &&
+      document.getElementById('timerOverlay')?.classList.contains('show')
+    ) {
+      createFallingBall();
     }
-    if (p.sessionSeconds % 10 < elapsed || !p.running) save();
+  }, 5000);
+
+  // 专注计时：与小球动画完全分开
+  timerInterval = setInterval(() => {
+    if (!p.running) return;
+
+    syncFocusElapsed();
+
+    // 倒计时结束
+    if (p.mode === 'countdown' && p.current <= 0) {
+      p.current = 0;
+      p.running = false;
+      p.lastTick = null;
+
+      stopFocusIntervals();
+
+      // 自动完成并保存历史
+      saveFocusSession('completed');
+
+      p.current = p.target;
+
+      save();
+      renderPomodoro();
+
+      alert('这一段专注完成啦！这份认真已经保存到历史记录。休息一下吧。');
+      return;
+    }
+
+    save();
     renderPomodoro();
-  }, 500);
+
+  }, 250);
+
   renderPomodoro();
 }
 
+
+// 2. 暂停：只暂停，不清零
 function pauseTimer() {
   const p = appData.pomodoro;
+
   if (!p.running) return;
-  // 补齐暂停瞬间尚未进入下一次 interval 的时间
-  const elapsed = Math.max(0, Math.floor((Date.now() - (p.lastTick || Date.now())) / 1000));
-  if (elapsed) {
-    p.sessionSeconds = (p.sessionSeconds || 0) + elapsed;
-    if (p.mode === 'countdown') p.current = Math.max(0, p.current - elapsed);
-    else p.current += elapsed;
-    if (Math.floor(p.sessionSeconds / 5) > Math.floor((p.sessionSeconds - elapsed) / 5)) createFallingBall();
-  }
+
+  // 暂停前补齐已经经过的时间
+  syncFocusElapsed();
+
   p.running = false;
   p.lastTick = null;
-  clearInterval(timerInterval);
+
+  stopFocusIntervals();
+
+  // 重要：不修改 current
+  // 不修改 sessionSeconds
+  // 不修改 sessionStartedAt
+
   save();
   renderPomodoro();
 }
 
+
+// 3. 结束本次专注：保存历史记录
 function finishTimer() {
   const p = appData.pomodoro;
+
+  // 如果还在运行，先补齐时间
   if (p.running) {
-    const elapsed = Math.max(0, Math.floor((Date.now() - (p.lastTick || Date.now())) / 1000));
-    if (elapsed) {
-      p.sessionSeconds = (p.sessionSeconds || 0) + elapsed;
-      if (p.mode === 'countdown') p.current = Math.max(0, p.current - elapsed);
-      else p.current += elapsed;
-    }
+    syncFocusElapsed();
   }
-  if ((p.sessionSeconds || 0) <= 0) return;
+
+  if ((Number(p.sessionSeconds) || 0) <= 0) {
+    alert('这次专注还没有开始计时哦。');
+    return;
+  }
+
   p.running = false;
   p.lastTick = null;
-  clearInterval(timerInterval);
+
+  stopFocusIntervals();
+
+  // 保存本次专注记录
   saveFocusSession('finished');
+
+  // 结束后才恢复初始显示
   p.current = p.mode === 'countdown' ? p.target : 0;
+
   save();
   renderPomodoro();
+
   alert('本次专注已结束，记录已保存。辛苦啦！');
 }
 
+
+// 4. 重置：清空当前进度，不保存历史
 function resetTimer() {
   const p = appData.pomodoro;
-  if (p.running) return;
-  if ((p.sessionSeconds || 0) > 0 && !confirm('重置会清空本次尚未保存的专注进度，不会写入历史记录。确定重置吗？')) return;
-  clearInterval(timerInterval);
+
+  if (p.running) {
+    alert('请先暂停，再重置计时。');
+    return;
+  }
+
+  if (
+    (Number(p.sessionSeconds) || 0) > 0 &&
+    !confirm('重置会清空本次尚未保存的专注进度，不会写入历史记录。确定重置吗？')
+  ) {
+    return;
+  }
+
+  stopFocusIntervals();
+
   p.running = false;
   p.lastTick = null;
   p.sessionSeconds = 0;
   p.sessionStartedAt = null;
+
   p.current = p.mode === 'countdown' ? p.target : 0;
+
+  // 清除屏幕上尚未落完的小球
   const balls = document.getElementById('ballsBg');
-  if (balls) balls.innerHTML = '';
+
+  if (balls) {
+    balls.innerHTML = '';
+  }
+
   save();
   renderPomodoro();
 }
+
 
 function saveFocusSession(status) {
   const p = appData.pomodoro;
@@ -541,22 +649,47 @@ function renderFocusHistory() {
   }).join('');
 }
 
+
+ 
 function createFallingBall() {
   const container = document.getElementById('ballsBg');
-  if (!container || !document.getElementById('timerOverlay')?.classList.contains('show')) return;
-  if (container.childElementCount >= 24) return;
-  const ball = document.createElement('div');
+  const overlay = document.getElementById('timerOverlay');
+
+  if (!container || !overlay || !overlay.classList.contains('show')) {
+    return;
+  }
+
+  const ball = document.createElement('span');
+
   ball.className = 'fall-ball';
-  const size = Math.random() * 13 + 9;
-  const duration = Math.random() * 3 + 6;
+
+  // 随机大小
+  const size = Math.round(Math.random() * 10 + 10);
+
+  // 随机下落速度
+  const duration = (Math.random() * 2.5 + 5.5).toFixed(2);
+
+  // 随机横向位置
+  const left = Math.random() * 94 + 3;
+
+  // 随机轻微横向漂移
+  const drift = Math.round(Math.random() * 70 - 35);
+
   ball.style.width = size + 'px';
   ball.style.height = size + 'px';
-  ball.style.left = (Math.random() * 96 + 2) + 'vw';
-  ball.style.background = 'rgba(200,139,117,' + (Math.random() * .22 + .28) + ')';
+  ball.style.left = left + 'vw';
+
+  ball.style.setProperty('--fall-drift', drift + 'px');
   ball.style.animationDuration = duration + 's';
+
   container.appendChild(ball);
-  setTimeout(() => ball.remove(), duration * 1000 + 300);
+
+  // 动画结束后清理元素
+  window.setTimeout(() => {
+    ball.remove();
+  }, Number(duration) * 1000 + 500);
 }
+
 
 // ========== 图表 ==========
 function chartBaseOptions() {
