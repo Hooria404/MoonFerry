@@ -918,3 +918,33 @@ button { -webkit-tap-highlight-color: transparent; }
 #timerOverlay #ballsBg span {
   pointer-events: none !important;
 }
+
+/* 专注小球显示修复 */
+#timerOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+}
+
+#timerOverlay #ballsBg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+#timerOverlay #ballsBg span {
+  position: absolute !important;
+  display: block !important;
+  border-radius: 50% !important;
+  pointer-events: none !important;
+}
+
+#timerOverlay .timer-container {
+  position: relative !important;
+  z-index: 2 !important;
+}

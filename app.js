@@ -417,7 +417,7 @@ function renderPomodoro() {
   if (toggleBtn) {
     toggleBtn.textContent = p.running
       ? '暂停'
-      : (p.sessionSeconds > 0 ? '继续' : '开始');
+      : (p.sessionSeconds > 0 ? '继续专注' : '开始专注');
   }
 
   document.querySelectorAll('.timer-mode-tab').forEach(tab => {
@@ -506,11 +506,12 @@ function startTimer() {
   // 开始后立即生成第一颗，之后每5秒生成一颗
   createFallingBall();
 
+// 每 5 秒生成一颗小球
   ballInterval = setInterval(() => {
-    if (p.running) {
+    if (appData.pomodoro.running) {
       createFallingBall();
     }
-  }, 5000);
+  }, 5000); 
 
   // 独立计时
   timerInterval = setInterval(() => {
@@ -540,7 +541,11 @@ function startTimer() {
       alert('本次专注已完成。');
     }
   }, 250);
+  const toggleBtn = document.getElementById('timerToggleBtn');
+  if (toggleBtn) toggleBtn.textContent = '继续专注';
 
+  const homeBtn = document.getElementById('pomStart');
+  if (homeBtn) homeBtn.textContent = '继续专注';
   renderPomodoro();
 }
 
@@ -549,22 +554,22 @@ function startTimer() {
 // 2. 暂停：只暂停，不清零
 function pauseTimer() {
   const p = appData.pomodoro;
-
   if (!p.running) return;
 
-  // 暂停前补齐已经经过的时间
   syncFocusElapsed();
 
   p.running = false;
   p.lastTick = null;
 
   stopFocusIntervals();
-
-  // 重要：不修改 current
-  // 不修改 sessionSeconds
-  // 不修改 sessionStartedAt
-
   save();
+
+  const toggleBtn = document.getElementById('timerToggleBtn');
+  if (toggleBtn) toggleBtn.textContent = '继续专注';
+
+  const homeBtn = document.getElementById('pomStart');
+  if (homeBtn) homeBtn.textContent = '继续专注';
+
   renderPomodoro();
 }
 
@@ -687,22 +692,23 @@ function renderFocusHistory() {
 
  
 
+
 function createFallingBall() {
   const container = document.getElementById('ballsBg');
+  const overlay = document.getElementById('timerOverlay');
 
-  if (!container) {
-    console.error('找不到小球容器 #ballsBg');
+  if (!container || !overlay) {
+    console.error('专注小球容器不存在，请检查 HTML 中的 ballsBg');
     return;
   }
 
+  // 创建小球
   const ball = document.createElement('span');
+  const size = 10 + Math.random() * 12;
+  const left = 3 + Math.random() * 94;
+  const drift = Math.random() * 70 - 35;
+  const duration = 6000 + Math.random() * 2500;
 
-  const size = Math.floor(Math.random() * 12) + 10;
-  const left = Math.random() * 94 + 3;
-  const drift = Math.floor(Math.random() * 100) - 50;
-  const duration = Math.random() * 2500 + 5500;
-
-  // 直接设置样式，不依赖原有 .fall-ball 动画规则
   Object.assign(ball.style, {
     position: 'absolute',
     display: 'block',
@@ -711,46 +717,39 @@ function createFallingBall() {
     width: size + 'px',
     height: size + 'px',
     borderRadius: '50%',
-    background: 'radial-gradient(circle at 32% 28%, #fff5ef 0%, #d9a18e 55%, #c88b75 100%)',
-    boxShadow: '0 3px 16px rgba(200,139,117,.22)',
-    opacity: '0.8',
-    pointerEvents: 'none',
-    zIndex: '1'
+    background: '#c88b75',
+    boxShadow: '0 2px 12px rgba(200,139,117,.25)',
+    opacity: '0.85',
+    zIndex: '1',
+    pointerEvents: 'none'
   });
 
   container.appendChild(ball);
 
-  // 使用浏览器原生动画接口
-  if (typeof ball.animate === 'function') {
-    const animation = ball.animate(
-      [
-        {
-          transform: 'translate3d(0, 0, 0)',
-          opacity: 0
-        },
-        {
-          transform: 'translate3d(0, 12vh, 0)',
-          opacity: 0.78,
-          offset: 0.12
-        },
-        {
-          transform: `translate3d(${drift}px, 110vh, 0)`,
-          opacity: 0
-        }
-      ],
-      {
-        duration: duration,
-        easing: 'linear',
-        fill: 'forwards'
-      }
-    );
+  // 原生动画：不再依赖旧 CSS keyframes
+  const animation = ball.animate([
+    {
+      transform: 'translate3d(0, 0, 0)',
+      opacity: 0
+    },
+    {
+      transform: 'translate3d(0, 10vh, 0)',
+      opacity: 0.85,
+      offset: 0.12
+    },
+    {
+      transform: `translate3d(${drift}px, ${window.innerHeight + 60}px, 0)`,
+      opacity: 0
+    }
+  ], {
+    duration,
+    easing: 'linear',
+    fill: 'forwards'
+  });
 
-    animation.onfinish = () => ball.remove();
-  } else {
-    ball.style.animation = `studyroomBallFall ${duration}ms linear forwards`;
-    setTimeout(() => ball.remove(), duration + 500);
-  }
+  animation.onfinish = () => ball.remove();
 }
+
 
 
 
