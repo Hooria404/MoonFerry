@@ -123,7 +123,6 @@ function load() {
       const parsed = JSON.parse(raw); 
       appData = Object.assign(appData, parsed);
       
-      // 兼容旧版番茄钟数据
       if (appData.pomodoro && !appData.pomodoro.mode) {
         appData.pomodoro = {
           running: appData.pomodoro.running || false,
@@ -136,14 +135,12 @@ function load() {
       if(!appData.pet) appData.pet = { enabled: false, defaultImg: '', focusImg: '', position: null };
       if(!appData.settings) appData.settings = { greeting: '' };
       if(!Array.isArray(appData.tasks)) appData.tasks = [];
-      // 旧任务没有日期字段，首次升级时归入今天，避免历史任务突然消失。
       appData.tasks.forEach((task, index) => {
         if (!task.id) task.id = 'task_' + Date.now() + '_' + index;
         if (!task.date) task.date = getTodayStr();
         if (typeof task.done !== 'boolean') task.done = false;
         if (!Number.isFinite(Number(task.min))) task.min = 30;
       });
-      // 页面刷新后不自动恢复正在运行的计时，保留剩余时间并等待用户继续。
       if (appData.pomodoro && appData.pomodoro.running) appData.pomodoro.running = false;
     } catch(e) { console.warn('数据读取失败'); }
   }
@@ -181,9 +178,7 @@ function renderCourses() {
   const enabled = appData.courses.filter(c => c.enabled).sort((a,b) => daysUntil(a.examDate) - daysUntil(b.examDate));
 
   if (enabled.length === 0) {
-    grid.innerHTML = `<div class="empty-hint">
-      <p>还没有启用的科目，点击右上角添加</p>
-    </div>`;
+    grid.innerHTML = `<div class="empty-hint"><p>还没有启用的科目，点击右上角添加</p></div>`;
     return;
   }
 
@@ -363,9 +358,6 @@ function addTask() {
   const min = Math.max(1, Math.min(1440, parseInt(minEl.value, 10) || 30));
   if (!title) {
     titleEl.focus();
-    titleEl.setCustomValidity('先写下任务内容吧');
-    titleEl.reportValidity();
-    titleEl.setCustomValidity('');
     return;
   }
   appData.tasks.push({ id: 'task_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7), title, min, done: false, date: getTodayStr() });
@@ -431,7 +423,8 @@ function renderPomodoro() {
     finishBtn.disabled = false;
     finishBtn.textContent = '结束本次专注';
   }
-  }
+
+  // ❌ 这里之前多了一个括号，导致整个JS崩溃，现已删除
 
   const resetBtn = document.getElementById('timerResetBtn');
   if (resetBtn) {
@@ -443,26 +436,21 @@ function renderPomodoro() {
     petClock.style.display = p.running ? 'block' : 'none';
   }
 
-  // 只有状态改变时才更新历史
   renderFocusHistory();
   renderPet();
-
-  // 注意：这里绝对不要调用 renderCharts()
 }
 
 
 // ========== 专注计时控制 ==========
 
-// 同时清除计时器和小球生成器
+// ✅ 修复死循环问题
 function stopFocusIntervals() {
-  if (timerInterval) stopFocusIntervals();
+  if (timerInterval) clearInterval(timerInterval);
   if (ballInterval) clearInterval(ballInterval);
-
   timerInterval = null;
   ballInterval = null;
 }
 
-// 根据真实经过时间更新计时，避免计时器延迟造成时间错误
 function syncFocusElapsed(now = Date.now()) {
   const p = appData.pomodoro;
 
@@ -472,9 +460,7 @@ function syncFocusElapsed(now = Date.now()) {
 
   if (elapsed <= 0) return 0;
 
-  // 保留不足一秒的时间，避免反复取整丢失时间
   p.lastTick += elapsed * 1000;
-
   p.sessionSeconds = (Number(p.sessionSeconds) || 0) + elapsed;
 
   if (p.mode === 'countdown') {
@@ -485,9 +471,6 @@ function syncFocusElapsed(now = Date.now()) {
 
   return elapsed;
 }
-
-
-// 1
 
 function startTimer() {
   const p = appData.pomodoro;
@@ -508,10 +491,10 @@ function startTimer() {
   stopFocusIntervals();
   save();
 
-  // 开始后立即出现第一颗小球
+  // 开始后立即出现第一颗小球（原样保留）
   createFallingBall();
 
-  // 此后每隔5秒生成一颗
+  // 此后每隔5秒生成一颗（原样保留）
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
       createFallingBall();
@@ -550,9 +533,6 @@ function startTimer() {
   renderPomodoro();
 }
 
-
-
-// 2. 暂停：只暂停，不清零
 function pauseTimer() {
   const p = appData.pomodoro;
   if (!p.running) return;
@@ -574,25 +554,19 @@ function pauseTimer() {
   renderPomodoro();
 }
 
-
-// 3. 结束本次专注：保存历史记录
-
 function finishTimer() {
   const p = appData.pomodoro;
 
-  // 如果正在计时，先补齐已经过的时间
   if (p.running) {
     syncFocusElapsed();
   }
 
-  // 停止计时和小球生成
   p.running = false;
   p.lastTick = null;
   stopFocusIntervals();
 
   const seconds = Number(p.sessionSeconds) || 0;
 
-  // 有实际专注时间才保存历史
   if (seconds > 0) {
     saveFocusSession('finished');
   } else {
@@ -600,7 +574,6 @@ function finishTimer() {
     p.sessionStartedAt = null;
   }
 
-  // 结束后恢复初始时间
   p.current = p.mode === 'countdown' ? p.target : 0;
 
   save();
@@ -614,9 +587,6 @@ function finishTimer() {
   );
 }
 
-
-
-// 4. 重置：清空当前进度，不保存历史
 function resetTimer() {
   const p = appData.pomodoro;
 
@@ -641,7 +611,6 @@ function resetTimer() {
 
   p.current = p.mode === 'countdown' ? p.target : 0;
 
-  // 清除屏幕上尚未落完的小球
   const balls = document.getElementById('ballsBg');
 
   if (balls) {
@@ -652,7 +621,6 @@ function resetTimer() {
   renderPomodoro();
 }
 
-
 function saveFocusSession(status) {
   const p = appData.pomodoro;
   const seconds = Math.max(0, Number(p.sessionSeconds) || 0);
@@ -661,7 +629,6 @@ function saveFocusSession(status) {
     const started = p.sessionStartedAt || new Date(Date.now() - seconds * 1000).toISOString();
     const ended = new Date().toISOString();
     appData.focusSessions.unshift({ id: 'focus_' + Date.now(), date: started.slice(0,10), startedAt: started, endedAt: ended, seconds, minutes: Math.floor(seconds / 60), mode: p.mode, status });
-    // 保留最近 200 条，避免本地数据无限增长
     appData.focusSessions = appData.focusSessions.slice(0, 200);
     const rec = ensureRecord(started.slice(0,10));
     rec.pom = (rec.pom || 0) + Math.floor(seconds / 60);
@@ -700,9 +667,7 @@ function renderFocusHistory() {
 }
 
 
- 
-
-
+// ========== 【小球部分代码原封不动保留】 ==========
 function createFallingBall() {
   const overlay = document.getElementById('timerOverlay');
   const container = document.getElementById('ballsBg');
@@ -712,7 +677,6 @@ function createFallingBall() {
     return;
   }
 
-  // 强制确保背景层存在且可显示
   Object.assign(container.style, {
     position: 'absolute',
     inset: '0',
@@ -747,7 +711,6 @@ function createFallingBall() {
 
   container.appendChild(ball);
 
-  // 原生动画，不依赖 CSS keyframes
   const animation = ball.animate([
     {
       transform: 'translateY(0)',
@@ -772,6 +735,7 @@ function createFallingBall() {
 
   console.log('🌸 已生成一颗专注小球');
 }
+// ========== 【小球部分结束】 ==========
 
 
 // ========== 图表 ==========
@@ -1064,7 +1028,6 @@ function renderPet() {
   else if (appData.pet.defaultImg) img.src = appData.pet.defaultImg;
 }
 
-// 桌宠拖拽逻辑
 function initPetDrag() {
   const pet = document.getElementById('petWidget');
   if (!pet) return;
@@ -1129,7 +1092,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!appData.records) appData.records = {};
   if (!Array.isArray(appData.focusSessions)) appData.focusSessions = [];
   if (!appData.pomodoro) appData.pomodoro = { running:false, mode:'countdown', target:1500, current:1500 };
-  appData.pomodoro.running = false; // 刷新页面后不自动续跑，保留未结算进度
+  appData.pomodoro.running = false;
   appData.pomodoro.lastTick = null;
   if (typeof appData.pomodoro.sessionSeconds !== 'number') appData.pomodoro.sessionSeconds = 0;
   if (!('sessionStartedAt' in appData.pomodoro)) appData.pomodoro.sessionStartedAt = null;
@@ -1180,7 +1143,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 番茄钟相关
   document.getElementById('homePomCard').onclick = (e) => {
     if (!e.target.closest('button')) openTimerOverlay();
   };
@@ -1192,6 +1154,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('timerToggleBtn').onclick = () => {
     if (appData.pomodoro.running) pauseTimer(); else startTimer();
   };
+  
+  // ✅ 确保“结束本次专注”按钮绑定成功
   document.getElementById('timerFinishBtn').onclick = finishTimer;
   document.getElementById('timerResetBtn').onclick = resetTimer;
   
@@ -1200,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = appData.pomodoro;
       if (p.mode === tab.dataset.mode) return;
       if ((p.running || (p.sessionSeconds || 0) > 0) && !confirm('切换模式会结束并清空当前未保存的计时进度（不会计入历史），确定切换吗？')) return;
-    stopFocusIntervals();
+      stopFocusIntervals();
       p.running = false;
       p.lastTick = null;
       p.sessionSeconds = 0;
@@ -1238,13 +1202,11 @@ document.addEventListener('DOMContentLoaded', () => {
     resetTimer();
   };
 });
-// 你之前的代码全部保留，只需在文件最末尾加上下面这段：
 
-// ✅ 全局暴露打开全屏的方法，供 HTML 直接调用
 window.openTimerOverlay = function() {
   const overlay = document.getElementById('timerOverlay');
   if (overlay) {
     overlay.classList.add('show');
-    renderPomodoro(); // 每次打开时强制同步一次最新时间
+    renderPomodoro();
   }
 };
