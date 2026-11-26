@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>StudyRoom · 温暖手账自习板</title>
-<script src="https://fastly.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 <style>
 :root{
   --outer-bg:#EAE3E8;
@@ -12,122 +12,191 @@
   --card-cream:#FDFBF7;
   --card-blue:#C6D8F3;
   --card-pink:#EDE1E7;
-  --line:rgba(44,41,39,0.08);
+  --line:rgba(44,41,39,0.09);
   --primary:#2C2927;
   --primary-hover:#45403D;
   --accent-blue:#6E92C7;
   --accent-pink:#B88A9E;
   --text:#2C2927;
-  --text2:#7A7470;
-  --card-shadow:0 8px 24px rgba(44,41,39,0.04);
+  --text2:#6E6864;
+  --card-shadow:0 8px 24px rgba(44,41,39,0.045);
   --radius:18px;
 }
 *{box-sizing:border-box;margin:0;padding:0;font-family:"PingFang SC","Hiragino Sans GB",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-body{background:var(--outer-bg);color:var(--text);padding:24px 16px 96px;min-height:100vh;}
-.app-container{max-width:1040px;margin:0 auto;background:var(--bg);border-radius:26px;padding:32px 36px 48px;box-shadow:0 20px 50px rgba(44,41,39,0.07);border:1px solid rgba(255,255,255,0.7);}
-.top-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid var(--line);}
-.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;letter-spacing:-0.3px;}
-.brand-dot{width:10px;height:10px;border-radius:50%;background:var(--text);display:inline-block;}
-.nav-right{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--text2);}
-.hero-header{display:flex;align-items:center;gap:18px;margin-bottom:32px;}
-.hero-avatar{width:56px;height:56px;border-radius:50%;background:var(--card-pink);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;border:2px solid #fff;box-shadow:0 4px 12px rgba(44,41,39,0.06);}
+html{font-size:16px;}
+body{background:var(--outer-bg);color:var(--text);padding:24px 16px 64px;min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.6;}
+
+/* ===== 开幕加载动画 ===== */
+.splash-screen{
+  position:fixed;inset:0;z-index:100;
+  background:var(--outer-bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.55s ease, visibility 0.55s ease;
+}
+.splash-screen.fade-out{opacity:0;visibility:hidden;pointer-events:none;}
+.splash-pet{width:104px;height:104px;margin-bottom:18px;animation:splashFloat 2s ease-in-out infinite;}
+.splash-title{font-size:28px;font-weight:700;letter-spacing:-0.5px;color:var(--text);margin-bottom:6px;}
+.splash-sub{font-size:15px;color:var(--text2);margin-bottom:20px;}
+.splash-dots{display:flex;gap:8px;}
+.splash-dots span{
+  width:9px;height:9px;border-radius:50%;background:var(--primary);
+  opacity:0.25;animation:dotPulse 1.2s infinite ease-in-out;
+}
+.splash-dots span:nth-child(2){animation-delay:0.2s;}
+.splash-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes splashFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-8px);}}
+@keyframes dotPulse{0%,100%{opacity:0.25;transform:scale(0.9);}50%{opacity:1;transform:scale(1.15);}}
+
+/* ===== 主容器与导航 ===== */
+.app-container{
+  max-width:1080px;margin:0 auto;background:var(--bg);border-radius:26px;
+  padding:32px 38px 52px;box-shadow:0 20px 50px rgba(44,41,39,0.07);
+  border:1px solid rgba(255,255,255,0.7);
+  opacity:0;transform:translateY(8px);transition:opacity 0.5s ease,transform 0.5s ease;
+}
+.app-container.ready{opacity:1;transform:translateY(0);}
+
+.top-nav{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-0.3px;cursor:pointer;}
+.brand-dot{width:11px;height:11px;border-radius:50%;background:var(--text);display:inline-block;}
+
+.nav-tabs{
+  display:flex;gap:5px;background:rgba(44,41,39,0.05);padding:5px;border-radius:999px;flex-wrap:wrap;
+}
+.nav-tab{
+  background:transparent;color:var(--text2);padding:7px 16px;border-radius:999px;
+  font-size:14px;font-weight:500;transition:all 0.2s;
+}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{background:#fff;color:var(--text);box-shadow:0 2px 8px rgba(44,41,39,0.06);font-weight:600;}
+
+.nav-right{display:flex;align-items:center;gap:10px;}
+
+/* ===== 头部问候 + 右侧精确到秒实时时钟 ===== */
+.hero-header{
+  display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px;
+}
+.hero-left{display:flex;align-items:center;gap:18px;}
+.hero-avatar{
+  width:62px;height:62px;border-radius:50%;background:var(--card-pink);
+  display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;
+  border:2px solid #fff;box-shadow:0 4px 12px rgba(44,41,39,0.06);
+}
 .hero-sub{font-size:13px;color:var(--text2);letter-spacing:0.5px;margin-bottom:4px;}
-.hero-title{font-size:27px;font-weight:700;letter-spacing:-0.5px;color:var(--text);margin-bottom:4px;}
+.hero-title{font-size:27px;font-weight:700;letter-spacing:-0.5px;color:var(--text);margin-bottom:4px;line-height:1.3;}
 .hero-desc{font-size:14px;color:var(--text2);}
+
 .hero-clock{
-  text-align:right;flex-shrink:0;
-  padding-left:20px;border-left:1px solid var(--line);
+  display:block;
+  background:var(--card-cream);
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px 22px;
+  text-align:right;
+  box-shadow:var(--card-shadow);
+  flex-shrink:0;
 }
-.clock-time{
-  font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;
-  color:var(--text);letter-spacing:1px;line-height:1.1;
+.hero-clock-time{
+  font-size:26px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0.5px;
+  color:var(--text);
+  line-height:1.2;
 }
-.clock-date{font-size:13px;color:var(--text2);margin-top:4px;}
-@media(max-width:600px){
-  .hero-clock{display:none;}
+.hero-clock-date{
+  font-size:13px;
+  color:var(--text2);
+  margin-top:4px;
 }
+
+/* ===== 通用组件 ===== */
 button{cursor:pointer;border:none;border-radius:999px;padding:9px 18px;font-size:14px;font-weight:500;transition:all 0.2s ease;}
 .btn-primary{background:var(--primary);color:#FAF8F5;box-shadow:0 4px 12px rgba(44,41,39,0.14);}
 .btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px);}
-.btn-default{background:rgba(44,41,39,0.05);color:var(--text);}
-.btn-default:hover{background:rgba(44,41,39,0.1);}
-.btn-pill-outline{background:#fff;border:1px solid var(--line);color:var(--text);padding:7px 14px;font-size:14px;}
-.section-label{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
-.card{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:22px;margin-bottom:20px;background:var(--card-cream);}
+.btn-default{background:rgba(44,41,39,0.06);color:var(--text);}
+.btn-default:hover{background:rgba(44,41,39,0.11);}
+.btn-pill-outline{background:#fff;border:1px solid var(--line);color:var(--text);padding:7px 15px;font-size:14px;}
+.btn-sm{padding:6px 13px;font-size:13px;}
+
+.section-label{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.card{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:24px;margin-bottom:22px;background:var(--card-cream);}
 .card-blue{background:var(--card-blue);border-color:rgba(110,146,199,0.2);}
 .card-pink{background:var(--card-pink);border-color:rgba(184,138,158,0.2);}
+.card-clickable{cursor:pointer;transition:transform 0.2s ease, box-shadow 0.2s ease;}
+.card-clickable:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(44,41,39,0.08);}
+
 .flex-row{display:flex;gap:18px;flex-wrap:wrap;align-items:stretch;}
-.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
-.title{font-size:17px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
-.subtitle{font-size:14px;color:var(--text2);margin-bottom:8px;line-height:1.5;}
-.pom-dial-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 6px;}
-.pom-dial{width:142px;height:142px;border-radius:50%;border:2px dashed rgba(44,41,39,0.22);background:rgba(255,255,255,0.35);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:16px;}
-.pom-time-text{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);letter-spacing:0.5px;}
-.pom-status-hint{font-size:12px;color:var(--text2);margin-top:2px;}
-.course-mini-card{background:rgba(255,255,255,0.72);border:1px solid rgba(44,41,39,0.06);border-radius:14px;padding:14px 16px;}
-.course-empty-hint{font-size:14px;color:var(--text2);padding:12px 0;}
-input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px;color:var(--text);outline:none;}
-input:focus{border-color:var(--text2);}
-input[type="checkbox"]{width:auto;margin-bottom:0;accent-color:var(--primary);}
-.banner{background:#F6E6E8;color:#7D4454;border:1px solid rgba(184,138,158,0.25);padding:12px 18px;border-radius:14px;margin-bottom:20px;cursor:pointer;font-size:14px;font-weight:500;}
-.task-item{display:flex;align-items:center;gap:12px;padding:12px 10px;border-bottom:1px solid var(--line);font-size:15px;}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;}
+.title{font-size:18px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.subtitle{font-size:14px;color:var(--text2);margin-bottom:8px;line-height:1.55;}
+
+/* 番茄表盘 */
+.pom-dial-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0 4px;}
+.pom-dial{width:150px;height:150px;border-radius:50%;border:2px dashed rgba(44,41,39,0.22);background:rgba(255,255,255,0.35);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:16px;}
+.pom-time-text{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);letter-spacing:0.5px;}
+.pom-status-hint{font-size:13px;color:var(--text2);margin-top:3px;}
+
+/* 课程与任务 */
+.course-mini-card{background:rgba(255,255,255,0.82);border:1px solid rgba(44,41,39,0.07);border-radius:14px;padding:16px 18px;}
+.course-empty-hint{font-size:14px;color:var(--text2);padding:8px 0;}
+input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 13px;font-size:14px;margin-bottom:12px;color:var(--text);outline:none;}
+textarea{resize:vertical;min-height:84px;line-height:1.5;}
+input:focus,select:focus,textarea:focus{border-color:var(--text2);}
+input[type="checkbox"]{width:17px;height:17px;margin-bottom:0;accent-color:var(--primary);cursor:pointer;}
+.banner{background:#F6E6E8;color:#7D4454;border:1px solid rgba(184,138,158,0.25);padding:13px 18px;border-radius:14px;margin-bottom:20px;cursor:pointer;font-size:14px;font-weight:500;}
+.task-item{display:flex;align-items:center;gap:12px;padding:12px 8px;border-bottom:1px solid var(--line);font-size:15px;}
 .task-item:last-child{border-bottom:none;}
 .task-done{opacity:0.55;text-decoration:line-through;}
-.tag{font-size:12px;padding:3px 10px;border-radius:999px;background:rgba(44,41,39,0.06);color:var(--text);font-weight:500;}
+.tag{font-size:12px;padding:4px 11px;border-radius:999px;background:rgba(44,41,39,0.06);color:var(--text);font-weight:500;white-space:nowrap;}
 .tag-high{background:#F6E6E8;color:#9E4758;}
 .tag-mid{background:#FFF4E0;color:#9A6B2F;}
 .tag-low{background:#EFEFEA;color:#7A7470;}
 
-/* 视图切换 */
+/* 批量章节工具条 */
+.batch-bar{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  background:rgba(44,41,39,0.035);padding:10px 12px;border-radius:12px;margin-bottom:12px;
+}
+.batch-panel{
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;
+}
+
+/* ===== 视图切换动画 ===== */
 .spa-view{display:none;animation:viewFade 0.25s ease;}
 .spa-view.active{display:block;}
 @keyframes viewFade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 
-/* 首页迷你统计卡 */
-.mini-stats-card{
-  cursor:pointer;transition:transform 0.2s ease,box-shadow 0.2s ease;
-}
-.mini-stats-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(44,41,39,0.1);}
-.mini-stats-row{display:flex;gap:14px;align-items:center;}
-.mini-stat-circle{
-  width:64px;height:64px;border-radius:50%;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  font-size:15px;font-weight:700;color:var(--text);
-  background:conic-gradient(#7B9CC9 var(--pct,0%),#EAE4DE 0);
-  position:relative;
-}
-.mini-stat-circle::after{
-  content:'';position:absolute;inset:6px;border-radius:50%;background:var(--card-cream);
-}
-.mini-stat-circle span{position:relative;z-index:1;}
-.mini-stat-label{font-size:14px;color:var(--text2);}
-.mini-stat-num{font-size:20px;font-weight:700;color:var(--text);}
-.mini-stats-arrow{margin-left:auto;color:var(--text2);font-size:18px;}
-
+/* ===== 热力图日历 ===== */
 .heatmap-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:10px;}
 .heat-cell{
-  aspect-ratio:1/1;border-radius:10px;background:rgba(44,41,39,0.05);
+  aspect-ratio:1/1;border-radius:12px;background:rgba(44,41,39,0.05);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-size:12px;color:var(--text2);border:1px solid rgba(44,41,39,0.04);
+  font-size:13px;color:var(--text2);border:1px solid rgba(44,41,39,0.04);
 }
 .heat-l1{background:#DCE7F7;color:var(--text);}
 .heat-l2{background:#B5CCE8;color:var(--text);}
 .heat-l3{background:#82A4D1;color:#fff;font-weight:600;}
 .heat-l4{background:#5277AB;color:#fff;font-weight:600;}
 
+/* 计划表格 */
 .plan-table{width:100%;border-collapse:collapse;font-size:14px;}
-.plan-table th,.plan-table td{padding:11px 10px;text-align:left;border-bottom:1px solid var(--line);}
+.plan-table th,.plan-table td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--line);}
 .plan-table th{font-weight:600;color:var(--text2);font-size:13px;}
 
-.setting-drawer{position:fixed;top:0;right:0;width:330px;height:100vh;background:var(--bg);border-left:1px solid var(--line);padding:24px;transform:translateX(100%);transition:0.28s cubic-bezier(0.22,1,0.36,1);z-index:40;overflow-y:auto;}
+/* 抽屉与弹窗 */
+.setting-drawer{position:fixed;top:0;right:0;width:340px;height:100vh;background:var(--bg);border-left:1px solid var(--line);padding:24px;transform:translateX(100%);transition:0.28s cubic-bezier(0.22,1,0.36,1);z-index:45;overflow-y:auto;}
 .setting-drawer.open{transform:translateX(0);}
-.overlay{position:fixed;inset:0;background:rgba(44,41,39,0.25);backdrop-filter:blur(2px);z-index:35;display:none;}
+.overlay{position:fixed;inset:0;background:rgba(44,41,39,0.25);backdrop-filter:blur(2px);z-index:40;display:none;}
 .overlay.open{display:block;}
-.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;display:none;}
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:55;display:none;}
 .modal.open{display:flex;}
-.modal-inner{background:var(--bg);border-radius:20px;width:min(520px,92vw);max-height:88vh;overflow-y:auto;padding:24px;border:1px solid var(--line);box-shadow:0 20px 40px rgba(44,41,39,0.12);}
-.step-indicator{display:flex;gap:6px;margin-bottom:18px;}
-.step-dot{width:8px;height:8px;border-radius:50%;background:rgba(44,41,39,0.15);}
+.modal-inner{background:var(--bg);border-radius:22px;width:min(620px,92vw);max-height:88vh;overflow-y:auto;padding:26px;border:1px solid var(--line);box-shadow:0 20px 40px rgba(44,41,39,0.14);}
+.step-indicator{display:flex;gap:8px;margin-bottom:16px;align-items:center;}
+.step-dot{height:6px;flex:1;border-radius:999px;background:rgba(44,41,39,0.1);transition:0.2s;}
 .step-dot.active{background:var(--primary);}
 .step-dot.done{background:var(--accent-blue);}
 .form-row{display:flex;gap:10px;}
@@ -136,109 +205,130 @@ input[type="checkbox"]{width:auto;margin-bottom:0;accent-color:var(--primary);}
 .chapter-row input{margin-bottom:0;}
 
 .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-.chart-box{height:200px;position:relative;}
+.chart-box{height:210px;position:relative;}
 
-/* 桌宠 */
-.pet-wrap{position:fixed;z-index:30;width:160px;height:180px;user-select:none;}
-.pet{width:88px;height:88px;cursor:grab;transition:transform 0.15s;margin:0 auto;border-radius:50%;}
-.pet.grabbing{cursor:grabbing;opacity:0.75;}
-.pet-bubble{position:absolute;top:-38px;left:50%;transform:translateX(-50%);background:var(--card-cream);border:1px solid var(--line);box-shadow:0 6px 16px rgba(44,41,39,0.08);border-radius:16px;padding:6px 12px;font-size:13px;color:var(--text);white-space:nowrap;opacity:0;transition:opacity 0.3s;pointer-events:none;}
-.pet-bubble.show{opacity:1;}
-.pet-timer{text-align:center;font-weight:700;font-size:14px;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums;}
-@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
-@keyframes breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.03);}}
-@keyframes bounce{0%{transform:scale(1);}50%{transform:scale(1.12);}100%{transform:scale(1);}}
-.pet-idle{animation:float 3s ease-in-out infinite;}
-.pet-focus{animation:breathe 2.4s ease-in-out infinite;}
-.pet-cele{animation:bounce 0.45s ease-out;}
-@media (prefers-reduced-motion:reduce){
-  .pet-idle,.pet-focus,.pet-cele{animation:none !important;}
+/* ===== 自定义桌宠（仅启用且已上传图片时显示） ===== */
+.pet-wrap{
+  position:fixed;z-index:30;width:116px;user-select:none;display:none;
+  background:var(--card-cream);border:1px solid var(--line);border-radius:20px;
+  padding:8px;box-shadow:0 10px 24px rgba(44,41,39,0.08);
 }
-@media(max-width:768px){
-  body{padding:10px 10px 60px;}
-  .app-container{padding:20px 18px 32px;border-radius:20px;}
-  .pet-wrap{display:none;}
-  .chart-row{grid-template-columns:1fr;}
-  .chart-box{height:180px;}
-  .form-row{flex-direction:column;gap:0;}
+.pet{
+  width:98px;height:98px;cursor:grab;border-radius:14px;
+  background-size:contain;background-repeat:no-repeat;background-position:center;
 }
-.pet-menu{position:fixed;background:var(--card-cream);border:1px solid var(--line);box-shadow:0 8px 20px rgba(44,41,39,0.1);border-radius:12px;padding:6px;z-index:32;display:none;}
+.pet.grabbing{cursor:grabbing;opacity:0.8;}
+.pet-timer{text-align:center;font-weight:700;font-size:13px;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums;}
+.pet-menu{position:fixed;background:var(--card-cream);border:1px solid var(--line);box-shadow:0 8px 20px rgba(44,41,39,0.1);border-radius:12px;padding:6px;z-index:35;display:none;}
 .pet-menu.open{display:block;}
-.pet-menu div{padding:7px 12px;cursor:pointer;font-size:14px;border-radius:8px;}
+.pet-menu div{padding:8px 14px;cursor:pointer;font-size:14px;border-radius:8px;}
 .pet-menu div:hover{background:rgba(44,41,39,0.05);}
-.review-weak-list{max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;}
-.review-weak-list label{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:14px;cursor:pointer;}
-.hidden{display:none !important;}
+.review-weak-list{max-height:190px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:#fff;}
+.review-weak-list label{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;cursor:pointer;}
 
-/* 开幕动画 */
-.splash{
-  position:fixed;inset:0;z-index:100;
-  background:var(--outer-bg);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  transition:opacity 0.6s ease,visibility 0.6s;
-}
-.splash.hide{opacity:0;visibility:hidden;pointer-events:none;}
-.splash-pet{width:100px;height:100px;margin-bottom:20px;animation:splashFloat 1.6s ease-in-out infinite;}
-.splash-title{font-size:24px;font-weight:700;color:var(--text);letter-spacing:0.5px;margin-bottom:8px;}
-.splash-sub{font-size:14px;color:var(--text2);letter-spacing:1px;}
-.splash-dots{margin-top:18px;display:flex;gap:6px;}
-.splash-dots span{width:6px;height:6px;border-radius:50%;background:var(--text2);animation:dotPulse 1.2s ease-in-out infinite;}
-.splash-dots span:nth-child(2){animation-delay:0.2s;}
-.splash-dots span:nth-child(3){animation-delay:0.4s;}
-@keyframes splashFloat{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-8px) scale(1.05);}}
-@keyframes dotPulse{0%,100%{opacity:0.3;transform:scale(1);}50%{opacity:1;transform:scale(1.3);}}
+/* ===== 减少动画偏好与移动端适配 ===== */
 @media (prefers-reduced-motion:reduce){
   .splash-pet,.splash-dots span{animation:none !important;}
+  .app-container,.splash-screen,.spa-view,.card-clickable{transition:none !important;animation:none !important;}
+}
+@media(max-width:640px){
+  body{padding:10px 10px 40px;}
+  .app-container{padding:20px 16px 28px;border-radius:20px;}
+  .hero-header{flex-direction:column;align-items:flex-start;}
+  .hero-clock{width:100%;text-align:left;}
+  .pet-wrap{display:none !important;}
+  .chart-row{grid-template-columns:1fr;}
+  .chart-box{height:185px;}
+  .form-row{flex-direction:column;gap:0;}
+  .hero-title{font-size:21px;}
 }
 </style>
 </head>
 <body>
 
-<!-- 开幕动画 -->
-<div class="splash" id="splash">
-  <svg class="splash-pet" viewBox="0 0 100 100">
-    <circle cx="50" cy="50" r="34" fill="#FDFBF7" stroke="#2C2927" stroke-width="2.2"/>
-    <circle cx="38" cy="44" r="3.2" fill="#2C2927"/>
-    <circle cx="62" cy="44" r="3.2" fill="#2C2927"/>
-    <path d="M41 61 Q50 69 59 61" fill="none" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
-    <circle cx="30" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
-    <circle cx="70" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
-  </svg>
+<!-- 开幕加载动画 -->
+<div class="splash-screen" id="splashScreen">
+  <div class="splash-pet">
+    <svg viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="36" fill="#FDFBF7" stroke="#2C2927" stroke-width="2.4"/>
+      <circle cx="38" cy="44" r="3.5" fill="#2C2927"/>
+      <circle cx="62" cy="44" r="3.5" fill="#2C2927"/>
+      <path d="M 41 61 Q 50 70 59 61" fill="none" stroke="#2C2927" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="29" cy="53" r="4.8" fill="#E8B4BE" opacity="0.7"/>
+      <circle cx="71" cy="53" r="4.8" fill="#E8B4BE" opacity="0.7"/>
+    </svg>
+  </div>
   <div class="splash-title">StudyRoom.</div>
-  <div class="splash-sub">SLOW & STEADY · 准备你的自习空间</div>
+  <div class="splash-sub">正在整理你的今日书桌...</div>
   <div class="splash-dots"><span></span><span></span><span></span></div>
 </div>
 
-<div class="app-container">
+<!-- 主应用容器 -->
+<div class="app-container" id="appContainer">
+  <!-- 顶部导航与多视图切换 -->
   <div class="top-nav">
-    <div class="brand"><span class="brand-dot"></span><span>StudyRoom.</span></div>
+    <div class="brand" onclick="switchView('home')">
+      <span class="brand-dot"></span><span>StudyRoom.</span>
+    </div>
+
+    <div class="nav-tabs" id="navTabs">
+      <button class="nav-tab active" data-view="home">今日首页</button>
+      <button class="nav-tab" data-view="plan">计划总览</button>
+      <button class="nav-tab" data-view="stats">数据统计</button>
+      <button class="nav-tab" data-view="courses">科目管理</button>
+    </div>
+
     <div class="nav-right">
-      <span id="todayDateText"></span>
+      <button class="btn-pill-outline" id="openReviewBtn">复盘小结</button>
       <button class="btn-pill-outline" id="openSetting">偏好设置 ⚙</button>
     </div>
   </div>
 
-  <div class="hero-header">
-    <div class="hero-avatar">☕</div>
-    <div style="flex:1;">
-      <div class="hero-sub">SLOW & STEADY · 纯本地自习空间</div>
-      <div class="hero-title" id="heroGreeting">嗨，今天也一起慢慢学吧。</div>
-      <div class="hero-desc">不赶时间，不焦虑。把大目标拆成今天能完成的小方块。</div>
-    </div>
-    <div class="hero-clock">
-      <div class="clock-time" id="clockTime">--:--:--</div>
-      <div class="clock-date" id="clockDate">----年--月--日</div>
-    </div>
-  </div>
-
+  <!-- 复盘提醒横幅 -->
   <div class="banner" id="reviewBanner" style="display:none">
-    🌙 夜色渐深，今天还没写下复盘小结，点击记录今日收获 →
+    🌙 夜色渐深，今天还没写下复盘小结，点击记录今日收获并自动微调明日计划 →
   </div>
 
-  <!-- 首页视图 -->
+  <!-- ==================== 视图 1：今日首页 ==================== -->
   <div class="spa-view active" id="view-home">
-    <div class="section-label"><span>今日状态与专注</span></div>
+    <!-- 1. 最顶端：问候语 + 精确到秒实时时钟 -->
+    <div class="hero-header">
+      <div class="hero-left">
+        <div class="hero-avatar">☕</div>
+        <div>
+          <div class="hero-sub">SLOW & STEADY · 纯本地自习空间</div>
+          <div class="hero-title" id="heroGreeting">嗨，今天也一起慢慢学。</div>
+          <div class="hero-desc">不赶时间，不焦虑。把大目标拆成今天能完成的小方块。</div>
+        </div>
+      </div>
+
+      <div class="hero-clock" id="heroClock">
+        <div class="hero-clock-time" id="liveClockTime">--:--:--</div>
+        <div class="hero-clock-date" id="liveClockDate">正在同步时间...</div>
+      </div>
+    </div>
+
+    <!-- 2. 考试倒计时置顶模块 -->
+    <div class="section-label">
+      <span>课程与考试倒计时</span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="totalProgress" style="font-weight:500;">总进度：0%</span>
+        <button class="btn-primary btn-sm" id="quickAddCourseFromHome">+ 快速加科目</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="grid-3" id="courseGrid"></div>
+      <div class="course-empty-hint" id="courseEmptyHint">还没有添加考试科目，点击右上角「+ 快速加科目」即可一次填完科目与批量章节。</div>
+    </div>
+
+    <!-- 3. 今日状态与专注 -->
+    <div class="section-label">
+      <span>今日状态与专注</span>
+      <button class="btn-default btn-sm" id="openWizardFromHome">排期节奏向导</button>
+    </div>
+
     <div class="flex-row" style="margin-bottom:6px;">
+      <!-- 专注番茄钟 -->
       <div class="card card-blue" style="flex:1;min-width:250px;">
         <div class="title"><span>专注时钟</span><span style="font-size:13px;font-weight:400;opacity:0.75;">一程</span></div>
         <div class="pom-dial-wrap">
@@ -248,124 +338,173 @@ input[type="checkbox"]{width:auto;margin-bottom:0;accent-color:var(--primary);}
           </div>
           <div style="display:flex;gap:10px;">
             <button class="btn-primary" id="pomStart">开始专注</button>
-            <button class="btn-default" style="background:rgba(255,255,255,0.55)" id="pomReset">重置</button>
+            <button class="btn-default" style="background:rgba(255,255,255,0.6)" id="pomReset">重置</button>
           </div>
         </div>
       </div>
 
-      <div class="card" style="flex:1.25;min-width:270px;display:flex;flex-direction:column;justify-content:space-between;">
+      <!-- 今日手账待办清单 -->
+      <div class="card" style="flex:1.35;min-width:280px;display:flex;flex-direction:column;justify-content:space-between;">
         <div>
-          <div class="title"><span>今日手账清单</span><span style="font-size:13px;font-weight:400;color:var(--text2);">待办</span></div>
+          <div class="title">
+            <span>今日手账清单</span>
+            <button class="btn-default btn-sm" id="toggleQuickTask">+ 随手记一条</button>
+          </div>
+          <div id="quickTaskBox" style="display:none;background:rgba(44,41,39,0.03);padding:10px;border-radius:12px;margin-bottom:10px;">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input id="quickTaskTitle" placeholder="输入临时任务（如：整理错题本）" style="margin-bottom:0;flex:1;">
+              <input id="quickTaskMin" type="number" value="30" min="5" max="240" style="margin-bottom:0;width:76px;" title="预计分钟">
+              <button class="btn-primary btn-sm" id="addQuickTaskBtn">添加</button>
+            </div>
+          </div>
+
           <div id="taskList"></div>
-          <div id="taskEmpty" style="display:none;padding:18px 0;color:var(--text2);font-size:14px;line-height:1.8;">
-            纸页还是空白的，先写下今天想完成的一件小事吧。<br>
-            <button class="btn-primary" style="margin-top:12px;" id="gotoInput">+ 录入复习计划</button>
+          <div id="taskEmpty" style="display:none;padding:16px 0;color:var(--text2);font-size:14px;line-height:1.8;">
+            纸页还是空白的，快速添加科目或随手记下一件小事吧。<br>
+            <button class="btn-primary" style="margin-top:12px;" id="gotoInput">+ 快速添加科目与章节</button>
           </div>
         </div>
-        <div class="subtitle" style="margin-top:12px;margin-bottom:0;font-size:13px;">勾选即可记录完成时间，无需完美主义</div>
+        <div class="subtitle" style="margin-top:12px;margin-bottom:0;font-size:13px;">
+          勾选全部今日任务可自动更新学习完成度 ✨
+        </div>
       </div>
 
+      <!-- 薄弱点与节奏 -->
       <div class="card card-pink" style="flex:1;min-width:250px;display:flex;flex-direction:column;justify-content:space-between;">
         <div>
           <div class="title"><span>重点与薄弱点</span><span style="font-size:13px;font-weight:400;opacity:0.75;">留意</span></div>
-          <div id="weakList" style="font-size:14px;line-height:1.7;color:var(--text);padding:8px 0;">暂无标记的薄弱章节，保持节奏就好。</div>
+          <div id="weakList" style="font-size:14px;line-height:1.7;color:var(--text);padding:6px 0;">
+            暂无标记的薄弱章节，保持节奏就好。
+          </div>
         </div>
-        <div style="background:rgba(255,255,255,0.5);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--text2);">
-          💡 遇到卡壳的知识点，先标记再回头拆解。
+        <div style="background:rgba(255,255,255,0.55);border-radius:12px;padding:11px 13px;font-size:13px;color:var(--text2);">
+          💡 在复盘或「科目管理」中标记薄弱章节，系统会提高其复习权重。
         </div>
       </div>
     </div>
 
-    <!-- 首页迷你统计卡（点击跳统计页） -->
-    <div class="section-label"><span>今日学习概览</span></div>
-    <div class="card mini-stats-card" id="miniStatsCard">
-      <div class="mini-stats-row">
-        <div class="mini-stat-circle" id="miniRing" style="--pct:0;"><span id="miniRingText">0%</span></div>
-        <div>
-          <div class="mini-stat-label">今日完成度</div>
-          <div class="mini-stat-num" id="miniDoneNum">0 / 0</div>
-        </div>
-        <div style="margin-left:24px;">
-          <div class="mini-stat-label">今日专注</div>
-          <div class="mini-stat-num" id="miniPomMin">0 分钟</div>
-        </div>
-        <div class="mini-stats-arrow">→</div>
-      </div>
-    </div>
-
+    <!-- 4. 首页嵌入式学习数据分析速览（点击跳转数据统计页） -->
     <div class="section-label">
-      <span>课程与考试倒计时</span>
-      <span id="totalProgress" style="font-weight:400;">总进度：0%</span>
+      <span>今日学习数据速览</span>
+      <span style="font-weight:400;font-size:13px;">点击卡片进入完整统计分析</span>
+    </div>
+    <div class="card card-clickable" id="homeStatsCard" style="margin-bottom:0;" onclick="switchView('stats')" title="点击跳转到数据统计页">
+      <div class="title">
+        <span>📊 今日进度与时间分布</span>
+        <span class="tag" style="background:rgba(44,41,39,0.08);font-size:13px;">查看完整趋势与热力图 →</span>
+      </div>
+      <div class="chart-row">
+        <div class="chart-box" style="height:190px;"><canvas id="homeChartRing"></canvas></div>
+        <div class="chart-box" style="height:190px;"><canvas id="homeChartStack"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 视图 2：计划总览视图 ==================== -->
+  <div class="spa-view" id="view-plan">
+    <div class="section-label">
+      <span>完整长期复习计划表</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="planFilterCourse" style="margin-bottom:0;padding:6px 14px;width:auto;">
+          <option value="ALL">全部科目</option>
+        </select>
+        <button class="btn-default btn-sm" id="recalcPlanBtn">按当前设置重排</button>
+      </div>
     </div>
     <div class="card">
-      <div class="grid-3" id="courseGrid"></div>
-      <div class="course-empty-hint" id="courseEmptyHint">还没有添加考试科目，点击上方「录入复习计划」即可自动生成倒计时卡片。</div>
+      <div id="planWrap" style="overflow-x:auto;"></div>
     </div>
   </div>
 
-  <!-- 计划总览视图 -->
-  <div class="spa-view" id="view-plan">
-    <div class="section-label"><span>完整复习计划表</span></div>
-    <div class="card" style="margin-bottom:0;">
-      <div id="planWrap">
-        <div class="course-empty-hint">生成计划后，这里会展示从今天到最后一门考试的完整复习安排。</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 统计视图 -->
+  <!-- ==================== 视图 3：数据统计视图 ==================== -->
   <div class="spa-view" id="view-stats">
-    <div class="section-label"><span>今日时间足迹</span></div>
+    <div class="section-label">
+      <span>今日完成度与时长分布</span>
+      <button class="btn-default btn-sm" onclick="switchView('home')">← 返回今日首页</button>
+    </div>
     <div class="card">
       <div class="chart-row">
         <div class="chart-box"><canvas id="chartRing"></canvas></div>
         <div class="chart-box"><canvas id="chartStack"></canvas></div>
       </div>
     </div>
-    <div class="section-label"><span>近 28 天学习足迹</span></div>
+
+    <div class="section-label">
+      <span>近 7 天学习时长趋势</span>
+      <button class="btn-default btn-sm" id="toggleTrendBtn">收起趋势图</button>
+    </div>
+    <div class="card" id="trendCardBody">
+      <div class="chart-box" style="height:220px;"><canvas id="chartTrend"></canvas></div>
+    </div>
+
+    <div class="section-label">
+      <span>近 28 天学习足迹热力图</span>
+      <span style="font-weight:400;font-size:13px;">颜色越深代表当日完成任务越多</span>
+    </div>
     <div class="card" style="margin-bottom:0;">
       <div class="heatmap-grid" id="heatmapGrid"></div>
     </div>
   </div>
 
-  <!-- 科目管理视图 -->
+  <!-- ==================== 视图 4：科目管理视图 ==================== -->
   <div class="spa-view" id="view-courses">
-    <div class="section-label"><span>科目管理</span><button class="btn-primary" id="addCourseBtn" style="font-size:13px;padding:6px 14px;">+ 新增科目</button></div>
+    <div class="section-label">
+      <span>科目与章节管理</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-default btn-sm" id="openWizardFromCourses">排期节奏向导</button>
+        <button class="btn-primary btn-sm" id="addSingleCourseBtn">+ 新增科目</button>
+      </div>
+    </div>
     <div id="courseManageList"></div>
   </div>
 </div>
 
-<!-- 录入向导弹窗 -->
+<!-- ==================== 排期节奏向导弹窗 ==================== -->
 <div class="modal" id="inputModal">
   <div class="modal-inner">
     <div class="step-indicator" id="stepIndicator"></div>
-    <div class="title" id="wizardTitle">录入复习信息</div>
+    <div class="title">
+      <span id="wizardTitle">排期节奏设置</span>
+      <button class="btn-default btn-sm" id="closeWizardBtn">关闭</button>
+    </div>
     <div id="wizardBody"></div>
-    <div style="display:flex;gap:10px;justify-content:space-between;margin-top:16px;">
+    <div style="display:flex;gap:10px;justify-content:space-between;margin-top:18px;">
       <button class="btn-default" id="inputPrev">上一步</button>
       <button class="btn-primary" id="inputNext">下一步</button>
     </div>
   </div>
 </div>
 
-<!-- 复盘弹窗 -->
+<!-- ==================== 复盘弹窗 ==================== -->
 <div class="modal" id="reviewModal">
   <div class="modal-inner">
-    <div class="title">📝 今日复盘</div>
-    <div class="subtitle">如实记录，明天的计划才能排得准。</div>
+    <div class="title">📝 今日复盘小结</div>
+    <div class="subtitle">如实记录今日节奏，未完成任务与薄弱章节将自动顺延重排。</div>
     <div id="reviewBody"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button class="btn-default" id="reviewCancel">取消</button>
-      <button class="btn-primary" id="reviewSubmit">提交复盘并重排计划</button>
+      <button class="btn-primary" id="reviewSubmit">提交复盘并重排</button>
     </div>
   </div>
 </div>
 
-<!-- 设置抽屉 -->
+<!-- ==================== 精简版科目与批量章节编辑弹窗 ==================== -->
+<div class="modal" id="courseEditModal">
+  <div class="modal-inner">
+    <div class="title" id="courseEditTitle">新增科目</div>
+    <div id="courseEditBody"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn-default" id="courseEditCancel">取消</button>
+      <button class="btn-primary" id="courseEditSave">保存并更新计划</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 设置抽屉 ==================== -->
 <div class="overlay" id="overlay"></div>
 <div class="setting-drawer" id="settingDrawer">
   <div class="title">空间偏好设置</div>
-  <div class="subtitle">数据全部保存在你的本地浏览器中</div>
+  <div class="subtitle">纯本地运行，支持导出 JSON 备份迁移</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
     <button class="btn-default" id="exportJson">导出 JSON</button>
     <button class="btn-default" id="importJson">导入 JSON</button>
@@ -373,57 +512,32 @@ input[type="checkbox"]{width:auto;margin-bottom:0;accent-color:var(--primary);}
   </div>
   <button class="btn-default" style="color:#9E4758;background:#F6E6E8;width:100%;margin-bottom:14px;" id="clearAll">清空全部本地数据</button>
   <hr style="margin:18px 0;border:none;border-top:1px solid var(--line);">
-  <div class="title" style="font-size:16px;">🐾 桌宠陪伴设置</div>
+  <div class="title" style="font-size:16px;">🐾 自定义挂件（仅上传图片后显示）</div>
   <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer;">
-    <input type="checkbox" id="petEnable"> 启用右下角学习伙伴
+    <input type="checkbox" id="petEnable"> 启用右下角自定义挂件
   </label>
-  <div style="font-size:14px;margin-bottom:4px;">伙伴昵称：</div>
-  <input id="petName" placeholder="小伙伴">
-  <div class="subtitle" style="margin-top:8px;">自定义状态插画（待机 / 专注 / 庆祝）</div>
+  <div style="font-size:14px;margin-bottom:4px;">顶部问候称呼：</div>
+  <input id="petName" placeholder="自习空间">
+  <div class="subtitle" style="margin-top:8px;">上传自定义图片（未上传图片时不会显示占位）</div>
   <div style="font-size:13px;color:var(--text2);">
-    <div>待机状态图<input type="file" class="petUpload" data-key="idle" accept="image/*"></div>
+    <div>默认状态图<input type="file" class="petUpload" data-key="idle" accept="image/*"></div>
     <div>专注状态图<input type="file" class="petUpload" data-key="focus" accept="image/*"></div>
-    <div>庆祝状态图<input type="file" class="petUpload" data-key="cele" accept="image/*"></div>
   </div>
 </div>
 
-<!-- 桌宠 -->
+<!-- ==================== 自定义图片挂件 ==================== -->
 <div class="pet-wrap" id="petWrap">
-  <div class="pet-bubble" id="petBubble"></div>
-  <div class="pet" id="pet">
-    <svg viewBox="0 0 100 100" id="petSvg">
-      <g id="svgIdle">
-        <circle cx="50" cy="50" r="34" fill="#FDFBF7" stroke="#2C2927" stroke-width="2.2"/>
-        <circle cx="38" cy="44" r="3.2" fill="#2C2927"/>
-        <circle cx="62" cy="44" r="3.2" fill="#2C2927"/>
-        <path d="M41 61 Q50 69 59 61" fill="none" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
-        <circle cx="30" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
-        <circle cx="70" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
-      </g>
-      <g id="svgFocus" style="display:none">
-        <circle cx="50" cy="50" r="34" fill="#C6D8F3" stroke="#2C2927" stroke-width="2.2"/>
-        <line x1="34" y1="43" x2="43" y2="47" stroke="#2C2927" stroke-width="2.2" stroke-linecap="round"/>
-        <line x1="66" y1="43" x2="57" y2="47" stroke="#2C2927" stroke-width="2.2" stroke-linecap="round"/>
-        <path d="M43 63 L57 63" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
-      </g>
-      <g id="svgCele" style="display:none">
-        <circle cx="50" cy="50" r="34" fill="#EDE1E7" stroke="#2C2927" stroke-width="2.2"/>
-        <path d="M36 41 L42 45 M42 41 L36 45" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
-        <path d="M58 41 L64 45 M64 41 L58 45" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
-        <path d="M40 59 Q50 72 60 59" fill="none" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
-      </g>
-    </svg>
-  </div>
+  <div class="pet" id="pet"></div>
   <div class="pet-timer" id="petTimer"></div>
   <div class="pet-menu" id="petMenu">
-    <div id="petHide">暂时收起伙伴</div>
-    <div id="petSetting">打开陪伴设置</div>
+    <div id="petHide">隐藏挂件</div>
+    <div id="petSetting">打开挂件设置</div>
   </div>
 </div>
 
 <script>
-/* ============ 数据层 ============ */
-const SCHEMA_VERSION = 2;
+/* ============ 1. 数据层与持久化 ============ */
+const SCHEMA_VERSION = 3;
 const DEFAULT_DATA = {
   schemaVersion: SCHEMA_VERSION,
   config: { dailyMinutes: 120, stageMode: "three" },
@@ -432,38 +546,76 @@ const DEFAULT_DATA = {
   reviews: [],
   pomodoro: { presets: [25,45,10], history: [] },
   pet: {
-    enable: true, name: "小伙伴", posX: 83, posY: 74,
-    img: { idle: null, focus: null, cele: null },
-    lastBubble: 0, lastClick: 0, hidden: false
+    enable: false, name: "自习空间", posX: 86, posY: 78,
+    img: { idle: null, focus: null },
+    lastClick: 0, hidden: false
   }
 };
+
 let appData;
 try {
   const raw = JSON.parse(localStorage.getItem("studyAppData"));
-  appData = raw && raw.courses ? { ...structuredClone(DEFAULT_DATA), ...raw } : structuredClone(DEFAULT_DATA);
+  appData = raw && raw.courses ? { ...structuredClone(DEFAULT_DATA), ...raw, pet: { ...structuredClone(DEFAULT_DATA.pet), ...(raw.pet || {}), img: { ...structuredClone(DEFAULT_DATA.pet.img), ...((raw.pet && raw.pet.img) || {}) } } } : structuredClone(DEFAULT_DATA);
 } catch {
   appData = structuredClone(DEFAULT_DATA);
 }
+
 function saveData(){ localStorage.setItem("studyAppData", JSON.stringify(appData)); }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){
-  const d=new Date();
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function defaultExamDateStr(){
+  const d = new Date(Date.now() + 14 * 86400000);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
-/* ============ 视图切换 ============ */
-let currentView = "home";
-function switchView(v){
-  currentView = v;
-  document.querySelectorAll(".spa-view").forEach(el=>el.classList.remove("active"));
-  document.getElementById("view-"+v).classList.add("active");
-  if(v==="home") renderHome();
-  if(v==="plan") renderPlan();
-  if(v==="stats") renderStats();
-  if(v==="courses") renderCourses();
+/* ============ 2. 问候语右侧精确到秒实时时钟 ============ */
+let clockInterval = null;
+function renderLiveClockOnce(){
+  const timeEl = document.getElementById("liveClockTime");
+  const dateEl = document.getElementById("liveClockDate");
+  const weeks = ["周日","周一","周二","周三","周四","周五","周六"];
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,"0");
+  const mm = String(now.getMinutes()).padStart(2,"0");
+  const ss = String(now.getSeconds()).padStart(2,"0");
+  if(timeEl) timeEl.textContent = `${hh}:${mm}:${ss}`;
+  if(dateEl) dateEl.textContent = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 · ${weeks[now.getDay()]}`;
 }
+function startLiveClock(){
+  renderLiveClockOnce();
+  if(clockInterval) clearInterval(clockInterval);
+  clockInterval = setInterval(renderLiveClockOnce, 1000);
+}
+document.addEventListener("DOMContentLoaded", startLiveClock);
+window.addEventListener("load", startLiveClock);
+startLiveClock();
 
-/* ============ IndexedDB ============ */
+/* ============ 3. 多视图 SPA 路由切换 ============ */
+let currentView = "home";
+function switchView(viewName){
+  currentView = viewName;
+  document.querySelectorAll(".nav-tab").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.view === viewName);
+  });
+  document.querySelectorAll(".spa-view").forEach(v=>{
+    v.classList.toggle("active", v.id === `view-${viewName}`);
+  });
+  if(viewName === "home") { renderHome(); renderLiveClockOnce(); }
+  if(viewName === "plan") renderPlanView();
+  if(viewName === "stats") renderStatsView();
+  if(viewName === "courses") renderCoursesView();
+}
+document.querySelectorAll(".nav-tab").forEach(btn=>{
+  btn.onclick = () => switchView(btn.dataset.view);
+});
+
+/* ============ 4. IndexedDB 图片存储 ============ */
 const IDB_NAME="studyPetDB", IDB_STORE="petImages";
 let idb;
 function openIDB(){
@@ -484,67 +636,39 @@ function getPetImg(key){
   });
 }
 async function loadPetAllImg(){
-  appData.pet.img.idle=await getPetImg("idle");
-  appData.pet.img.focus=await getPetImg("focus");
-  appData.pet.img.cele=await getPetImg("cele");
+  appData.pet.img.idle = await getPetImg("idle");
+  appData.pet.img.focus = await getPetImg("focus");
   renderPet();
 }
 
-/* ============ 桌宠 ============ */
-const petWrap=document.getElementById("petWrap"),petEl=document.getElementById("pet"),
-      petSvg=document.getElementById("petSvg"),svgIdle=document.getElementById("svgIdle"),
-      svgFocus=document.getElementById("svgFocus"),svgCele=document.getElementById("svgCele"),
-      petBubble=document.getElementById("petBubble"),petTimer=document.getElementById("petTimer"),
-      petMenu=document.getElementById("petMenu");
-const bubblePoolIdle=["慢慢来，一步一步来","认真就很棒啦","歇一下也没关系","喝口水，继续往前走"];
-const bubblePoolFocus=["安静陪你学习 ✨","专注当下就好"];
-const bubblePoolTired=["夜深啦，别熬太狠","已经学很久，伸个懒腰吧"];
-let petState="idle",celeTimeout=null;
-function triggerPetCelebrate(msg){
-  clearTimeout(celeTimeout);
-  setPetState("cele");
-  showBubble(msg||"太棒啦！给你放朵小红花 🎉");
-  celeTimeout=setTimeout(()=>setPetState(pomRunning?"focus":"idle"),4500);
-}
+/* ============ 5. 自定义挂件逻辑（仅在启用且已上传图片时显示） ============ */
+const petWrap = document.getElementById("petWrap"),
+      petEl = document.getElementById("pet"),
+      petTimer = document.getElementById("petTimer"),
+      petMenu = document.getElementById("petMenu");
+let petState = "idle";
+
 function renderPet(){
-  const p=appData.pet;
-  document.getElementById("heroGreeting").textContent=`嗨，我是${p.name||"小伙伴"}，今天也一起慢慢学。`;
-  if(!p.enable||p.hidden){petWrap.style.display="none";return;}
-  petWrap.style.display="block";
-  petWrap.style.left=`${p.posX}%`;
-  petWrap.style.top=`${p.posY}%`;
-  let imgKey=petState==="focus"?"focus":petState==="cele"?"cele":"idle";
-  if(p.img[imgKey]){
-    petSvg.style.display="none";
-    petEl.style.backgroundImage=`url(${p.img[imgKey]})`;
-    petEl.style.backgroundSize="cover";
-  }else{
-    petSvg.style.display="block";
-    petEl.style.backgroundImage="none";
-    svgIdle.style.display="none";svgFocus.style.display="none";svgCele.style.display="none";
-    if(petState==="idle")svgIdle.style.display="block";
-    if(petState==="focus")svgFocus.style.display="block";
-    if(petState==="cele")svgCele.style.display="block";
+  const p = appData.pet;
+  const label = (p.name || "").trim();
+  document.getElementById("heroGreeting").textContent = label
+    ? `${label} · 今天也一起慢慢学。`
+    : "今天也一起慢慢学。";
+
+  const activeImg = (petState === "focus" && p.img.focus) ? p.img.focus : p.img.idle;
+  if(!p.enable || p.hidden || !activeImg){
+    petWrap.style.display = "none";
+    return;
   }
-  petEl.className="pet";
-  if(petState==="idle")petEl.classList.add("pet-idle");
-  if(petState==="focus")petEl.classList.add("pet-focus");
-  if(petState==="cele")petEl.classList.add("pet-cele");
+
+  petWrap.style.display = "block";
+  petWrap.style.left = `${p.posX}%`;
+  petWrap.style.top = `${p.posY}%`;
+  petEl.style.backgroundImage = `url(${activeImg})`;
 }
-function setPetState(s){petState=s;renderPet();}
-function showBubble(t){
-  petBubble.textContent=t;petBubble.classList.add("show");
-  setTimeout(()=>petBubble.classList.remove("show"),4500);
-}
-function pickBubble(){
-  const hour=new Date().getHours();
-  const totalMin=appData.pomodoro.history.reduce((s,i)=>s+i.minutes,0);
-  let pool=bubblePoolIdle;
-  if(petState==="focus")pool=bubblePoolFocus;
-  else if(hour>=22||totalMin>=120)pool=bubblePoolTired;
-  showBubble(pool[Math.floor(Math.random()*pool.length)]);
-  appData.pet.lastBubble=Date.now();saveData();
-}
+
+function setPetState(s){ petState = s; renderPet(); }
+
 let drag=false,dragSX,dragSY,startPX,startPY;
 petEl.addEventListener("mousedown",e=>{
   drag=true;dragSX=e.clientX;dragSY=e.clientY;
@@ -556,16 +680,11 @@ document.addEventListener("mousemove",e=>{
   if(!drag)return;
   const nx=startPX+(e.clientX-dragSX)/window.innerWidth*100;
   const ny=startPY+(e.clientY-dragSY)/window.innerHeight*100;
-  appData.pet.posX=Math.max(0,Math.min(86,nx));
+  appData.pet.posX=Math.max(0,Math.min(88,nx));
   appData.pet.posY=Math.max(0,Math.min(84,ny));
   petWrap.style.left=`${appData.pet.posX}%`;petWrap.style.top=`${appData.pet.posY}%`;
 });
 document.addEventListener("mouseup",()=>{if(drag){drag=false;petEl.classList.remove("grabbing");saveData();}});
-petEl.addEventListener("click",()=>{
-  const now=Date.now();
-  if(now-appData.pet.lastClick<2500)return;
-  appData.pet.lastClick=now;pickBubble();saveData();
-});
 petEl.addEventListener("contextmenu",e=>{
   e.preventDefault();petMenu.classList.add("open");
   petMenu.style.left=e.clientX+"px";petMenu.style.top=e.clientY+"px";
@@ -578,7 +697,7 @@ document.getElementById("petSetting").onclick=()=>{
 };
 document.addEventListener("click",e=>{if(!petMenu.contains(e.target)&&e.target!==petEl)petMenu.classList.remove("open");});
 
-/* ============ 番茄钟 ============ */
+/* ============ 6. 番茄钟 ============ */
 let pomRunning=false,pomSeconds=0,pomTimerId=null;
 const pomTimeEl=document.getElementById("pomTime"),pomHintEl=document.getElementById("pomHint"),
       pomStartBtn=document.getElementById("pomStart"),pomResetBtn=document.getElementById("pomReset");
@@ -596,89 +715,159 @@ pomStartBtn.onclick=()=>{
     if(pomSeconds>=60){
       appData.pomodoro.history.push({minutes:Math.round(pomSeconds/60),endedAt:new Date().toISOString()});
       saveData();
-      showBubble(`已记录 ${Math.round(pomSeconds/60)} 分钟专注 ✨`);
+      drawHomeCharts();
     }
     pomSeconds=0;renderPom();return;
   }
-  pomRunning=true;setPetState("focus");showBubble(bubblePoolFocus[0]);renderPom();
+  pomRunning=true;setPetState("focus");renderPom();
   pomTimerId=setInterval(()=>{pomSeconds++;renderPom();},1000);
 };
 pomResetBtn.onclick=()=>{clearInterval(pomTimerId);pomRunning=false;pomSeconds=0;setPetState("idle");renderPom();};
 
-/* ============ 优先级算法 ============ */
+/* ============ 7. 加权排题算法 ============ */
 function calcPriority(course){
   const dScore=(Number(course.difficulty)||3)*20;
   const mScore=100-(Number(course.mastery)||50);
   const days=Math.max(1,Math.ceil((new Date(course.examDate)-new Date(todayStr()))/86400000));
   const uScore=Math.min(100,100/days*12);
-  return Math.round(dScore*0.30+mScore*0.40+uScore*0.30);
+  return Math.round(dScore*0.30 + mScore*0.40 + uScore*0.30);
 }
 function priorityLabel(score){
   if(score>=70)return{level:"高",cls:"tag-high"};
   if(score>=45)return{level:"中",cls:"tag-mid"};
   return{level:"低",cls:"tag-low"};
 }
-
-/* ============ 计划生成 ============ */
+function getStageName(pct, mode){
+  if(mode === "single") return "均衡推进";
+  if(mode === "two") return pct > 0.65 ? "考前冲刺" : "系统复习";
+  if(pct > 0.8) return "模拟冲刺";
+  if(pct > 0.5) return "专项刷题";
+  return "基础复习";
+}
 function generatePlan(){
   const dailyCap=(appData.config.dailyMinutes||120)*0.85;
-  const mode=appData.config.stageMode||"three";
+  const mode = appData.config.stageMode || "three";
   const today=new Date(todayStr());
+  const existingToday = appData.tasks.find(d=>d.date===todayStr());
+  const manualTasks = existingToday ? existingToday.tasks.filter(t=>t.isManual) : [];
+
   let taskPool=[];
-  const totalCh=Math.max(1,appData.courses.reduce((s,cc)=>s+cc.chapters.length,0));
-  let counter=0;
+  const totalChapters = Math.max(1, appData.courses.reduce((s,cc)=>s+cc.chapters.length,0));
+  let counter = 0;
+
   appData.courses.forEach(c=>{
     c.chapters.forEach(ch=>{
       counter++;
       const minutes=ch.estimatedMinutes||c.defaultChapterMinutes||60;
-      let stage="基础复习";
-      if(mode==="single")stage="均衡推进";
-      else if(mode==="two")stage=counter/totalCh>0.65?"考前冲刺":"系统复习";
-      else if(counter/totalCh>0.8)stage="模拟冲刺";
-      else if(counter/totalCh>0.5)stage="专项刷题";
+      const stage=getStageName(counter/totalChapters, mode);
       const score=calcPriority(c)+(ch.isWeak?22:0);
       taskPool.push({
         id:uid(),courseId:c.id,chapterId:ch.id,
-        content:`${ch.name} · ${stage}`,estimatedMinutes:minutes,
-        priority:score,stage:stage,completed:false,completedAt:null,
+        content:`${ch.name} · ${stage}`,
+        estimatedMinutes:minutes,priority:score,
+        stage:stage,completed:false,completedAt:null,
         courseName:c.name,chapterName:ch.name,isManual:false
       });
     });
   });
+
   taskPool.sort((a,b)=>b.priority-a.priority);
-  let days=[],dayCursor=new Date(today),poolIdx=0;
-  while(poolIdx<taskPool.length&&days.length<90){
-    const ds=dayCursor.toISOString().slice(0,10);
-    let dayTasks=[],used=0;
+
+  let days=[];
+  let dayCursor=new Date(today);
+  let poolIdx=0;
+
+  if(manualTasks.length > 0 && taskPool.length === 0){
+    days.push({date:todayStr(),tasks:manualTasks});
+  }
+
+  while(poolIdx<taskPool.length && days.length<90){
+    const dateStr=dayCursor.toISOString().slice(0,10);
+    let dayTasks = (dateStr===todayStr()) ? [...manualTasks] : [];
+    let used = dayTasks.reduce((s,t)=>s+t.estimatedMinutes,0);
+
     while(poolIdx<taskPool.length){
       const t=taskPool[poolIdx];
-      if(used+t.estimatedMinutes>dailyCap&&dayTasks.length>0)break;
+      if(used+t.estimatedMinutes>dailyCap && dayTasks.length>0) break;
       dayTasks.push(t);used+=t.estimatedMinutes;poolIdx++;
     }
-    days.push({date:ds,tasks:dayTasks});
+    days.push({date:dateStr,tasks:dayTasks});
     dayCursor=new Date(dayCursor.getTime()+86400000);
   }
-  appData.tasks=days;saveData();
+  appData.tasks=days;
+  saveData();
 }
 
-/* ============ 渲染：首页 ============ */
+/* ============ 8. 通用双图表渲染助手 ============ */
+function buildTodayCharts(ringCanvasId, stackCanvasId, existingRing, existingStack){
+  const elR = document.getElementById(ringCanvasId);
+  const elS = document.getElementById(stackCanvasId);
+  if(!elR || !elS) return { ring: existingRing, stack: existingStack };
+  if(existingRing) existingRing.destroy();
+  if(existingStack) existingStack.destroy();
+
+  const todayPlan=appData.tasks.find(d=>d.date===todayStr());
+  const tasks=todayPlan?todayPlan.tasks:[];
+  const done=tasks.filter(t=>t.completed).length;
+  const undone=tasks.length-done;
+  const hasData=tasks.length>0;
+
+  const ring = new Chart(elR.getContext("2d"),{
+    type:"doughnut",
+    data:{labels:hasData?["已完成","待完成"]:["暂无任务"],
+      datasets:[{data:hasData?[done,undone]:[1],
+        backgroundColor:hasData?["#7B9CC9","#EAE4DE"]:["#EAE4DE"],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"66%",
+      plugins:{title:{text:"今日任务完成度",display:true,color:"#2C2927",font:{size:14,weight:"600"}},
+        legend:{labels:{color:"#6E6864",boxWidth:12,font:{size:13}}}}}
+  });
+
+  const doneMin=tasks.filter(t=>t.completed).reduce((s,t)=>s+t.estimatedMinutes,0);
+  const totalMin=tasks.reduce((s,t)=>s+t.estimatedMinutes,0);
+  const stack = new Chart(elS.getContext("2d"),{
+    type:"bar",
+    data:{labels:["今日计划时长 (分钟)"],
+      datasets:[
+        {label:"已完成",data:[doneMin],backgroundColor:"#C599AD",borderRadius:6},
+        {label:"剩余待完成",data:[Math.max(0,totalMin-doneMin)],backgroundColor:"#EAE4DE",borderRadius:6}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{title:{text:"今日时间分布",display:true,color:"#2C2927",font:{size:14,weight:"600"}},
+        legend:{labels:{color:"#6E6864",boxWidth:12,font:{size:13}}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:"#6E6864",font:{size:13}}},
+        y:{stacked:true,grid:{color:"rgba(44,41,39,0.05)"},ticks:{color:"#6E6864",font:{size:13}}}}}
+  });
+
+  return { ring, stack };
+}
+
+let homeRingChart, homeStackChart;
+function drawHomeCharts(){
+  const res = buildTodayCharts("homeChartRing", "homeChartStack", homeRingChart, homeStackChart);
+  homeRingChart = res.ring;
+  homeStackChart = res.stack;
+}
+
+/* ============ 9. 渲染：今日首页 ============ */
 function renderHome(){
+  renderLiveClockOnce();
   const grid=document.getElementById("courseGrid"),emptyHint=document.getElementById("courseEmptyHint");
   grid.innerHTML="";
   if(appData.courses.length===0){emptyHint.style.display="block";}
   else{
     emptyHint.style.display="none";
-    appData.courses.forEach(c=>{
+    const sortedCourses = [...appData.courses].sort((a,b)=>new Date(a.examDate)-new Date(b.examDate));
+    sortedCourses.forEach(c=>{
       const days=Math.ceil((new Date(c.examDate)-new Date(todayStr()))/86400000);
       const score=calcPriority(c);
       const pl=priorityLabel(score);
       const div=document.createElement("div");
       div.className="course-mini-card";
       div.innerHTML=`
-        <div style="font-weight:600;margin-bottom:4px;">${c.courseCode} ${c.name}</div>
-        <div class="subtitle">考试：${c.examDate} · ${days>=0?`剩 ${days} 天`:'已结束'}</div>
+        <div style="font-weight:600;font-size:16px;margin-bottom:4px;">${c.courseCode} ${c.name}</div>
+        <div class="subtitle">考试：${c.examDate} · <strong>${days>=0?`剩 ${days} 天`:'已结束'}</strong></div>
         <span class="tag ${pl.cls}">权重 ${pl.level} (${score})</span>
-        <div class="subtitle" style="margin-top:6px;margin-bottom:0;">难度 ${c.difficulty}/5 · 掌握 ${c.mastery}%</div>`;
+        <div class="subtitle" style="margin-top:8px;margin-bottom:0;">难度 ${c.difficulty}/5 · 掌握 ${c.mastery}%</div>`;
       grid.appendChild(div);
     });
   }
@@ -697,7 +886,7 @@ function renderHome(){
     sorted.forEach(t=>{
       const course=appData.courses.find(c=>c.id===t.courseId);
       const pl=priorityLabel(t.priority);
-      const badge=t.isManual?"随手记":(course?course.courseCode:"");
+      const badge = t.isManual ? "随手记" : (course?course.courseCode:"");
       const div=document.createElement("div");
       div.className="task-item"+(t.completed?" task-done":"");
       div.innerHTML=`
@@ -714,9 +903,6 @@ function renderHome(){
           t.completed=cb.checked;
           t.completedAt=cb.checked?new Date().toISOString():null;
           saveData();renderHome();
-          if(todayPlan.tasks.length>0&&todayPlan.tasks.every(x=>x.completed)){
-            triggerPetCelebrate("今日手账全部划掉啦！🎉");
-          }
         }
       };
     });
@@ -730,34 +916,56 @@ function renderHome(){
   const doneCount=allTasks.filter(t=>t.completed).length;
   document.getElementById("totalProgress").textContent=`总进度：${allTasks.length?Math.round(doneCount/allTasks.length*100):0}%`;
 
-  // 迷你统计卡
-  const todayTasks=todayPlan?todayPlan.tasks:[];
-  const todayDone=todayTasks.filter(t=>t.completed).length;
-  const pct=todayTasks.length?Math.round(todayDone/todayTasks.length*100):0;
-  const todayPom=appData.pomodoro.history.filter(h=>h.endedAt.slice(0,10)===todayStr()).reduce((s,h)=>s+h.minutes,0);
-  document.getElementById("miniRing").style.setProperty("--pct",pct+"%");
-  document.getElementById("miniRingText").textContent=pct+"%";
-  document.getElementById("miniDoneNum").textContent=`${todayDone} / ${todayTasks.length}`;
-  document.getElementById("miniPomMin").textContent=todayPom+" 分钟";
-
   const h=new Date().getHours();
   const hasReview=appData.reviews.some(r=>r.date===todayStr());
   document.getElementById("reviewBanner").style.display=(h>=18&&!hasReview)?"block":"none";
+
+  drawHomeCharts();
 }
 
-// 迷你统计卡点击跳统计页
-document.getElementById("miniStatsCard").onclick=()=>switchView("stats");
+document.getElementById("toggleQuickTask").onclick=()=>{
+  const box=document.getElementById("quickTaskBox");
+  box.style.display = box.style.display==="none" ? "block" : "none";
+};
+document.getElementById("addQuickTaskBtn").onclick=()=>{
+  const title=document.getElementById("quickTaskTitle").value.trim();
+  const min=Number(document.getElementById("quickTaskMin").value)||30;
+  if(!title) return;
+  let todayPlan=appData.tasks.find(d=>d.date===todayStr());
+  if(!todayPlan){
+    todayPlan={date:todayStr(),tasks:[]};
+    appData.tasks.unshift(todayPlan);
+  }
+  todayPlan.tasks.push({
+    id:uid(),courseId:"MANUAL",chapterId:"MANUAL",
+    content:title,chapterName:title,estimatedMinutes:min,
+    priority:60,stage:"临时待办",completed:false,completedAt:null,isManual:true
+  });
+  document.getElementById("quickTaskTitle").value="";
+  document.getElementById("quickTaskBox").style.display="none";
+  saveData();renderHome();
+};
 
-/* ============ 渲染：计划总览 ============ */
-function renderPlan(){
+/* ============ 10. 渲染：计划总览视图 ============ */
+function renderPlanView(){
+  const sel=document.getElementById("planFilterCourse");
+  const curVal=sel.value;
+  sel.innerHTML='<option value="ALL">全部科目</option>';
+  appData.courses.forEach(c=>{
+    sel.innerHTML+=`<option value="${c.id}">${c.courseCode} ${c.name}</option>`;
+  });
+  if([...sel.options].some(o=>o.value===curVal)) sel.value=curVal;
+
   const wrap=document.getElementById("planWrap");
   if(!appData.tasks.length){
-    wrap.innerHTML='<div class="course-empty-hint">生成计划后，这里会展示从今天到最后一门考试的完整复习安排。</div>';
+    wrap.innerHTML='<div class="course-empty-hint">暂无排期计划，请先添加科目与章节。</div>';
     return;
   }
+  const filterId=sel.value;
   let rows="";
   appData.tasks.forEach(d=>{
     d.tasks.forEach(t=>{
+      if(filterId!=="ALL" && t.courseId!==filterId) return;
       const course=appData.courses.find(c=>c.id===t.courseId);
       const pl=priorityLabel(t.priority);
       rows+=`<tr style="${t.completed?'opacity:0.5;text-decoration:line-through;':''}">
@@ -765,189 +973,288 @@ function renderPlan(){
         <td>${t.isManual?'随手记':(course?course.courseCode:'')}</td>
         <td>${t.chapterName}</td>
         <td>${t.stage}</td>
-        <td>${t.estimatedMinutes}min</td>
+        <td>${t.estimatedMinutes} min</td>
         <td><span class="tag ${pl.cls}">${pl.level}</span></td>
+        <td>${t.completed?'✅ 已完成':'⏳ 待复习'}</td>
       </tr>`;
     });
   });
-  wrap.innerHTML=`<table class="plan-table"><thead><tr><th>日期</th><th>科目</th><th>章节</th><th>阶段</th><th>用时</th><th>优先级</th></tr></thead><tbody>${rows}</tbody></table>`;
+  wrap.innerHTML = rows
+    ? `<table class="plan-table"><thead><tr><th>日期</th><th>科目</th><th>章节内容</th><th>阶段</th><th>预计用时</th><th>优先级</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<div class="course-empty-hint">该筛选条件下暂无计划条目。</div>';
 }
+document.getElementById("planFilterCourse").onchange=renderPlanView;
+document.getElementById("recalcPlanBtn").onclick=()=>{
+  if(!appData.courses.length){alert("请先添加科目");return;}
+  generatePlan();renderPlanView();
+};
 
-/* ============ 渲染：统计页 ============ */
-let ringChart,stackChart;
-function renderStats(){
-  const ctxR=document.getElementById("chartRing").getContext("2d");
-  const ctxS=document.getElementById("chartStack").getContext("2d");
-  if(ringChart)ringChart.destroy();
-  if(stackChart)stackChart.destroy();
-  const todayPlan=appData.tasks.find(d=>d.date===todayStr());
-  const tasks=todayPlan?todayPlan.tasks:[];
-  const done=tasks.filter(t=>t.completed).length;
-  const undone=tasks.length-done;
-  const hasData=tasks.length>0;
-  ringChart=new Chart(ctxR,{
-    type:"doughnut",
-    data:{labels:hasData?["已完成","待完成"]:["暂无任务"],
-      datasets:[{data:hasData?[done,undone]:[1],
-        backgroundColor:hasData?["#7B9CC9","#EAE4DE"]:["#EAE4DE"],borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:"68%",
-      plugins:{title:{text:"今日任务完成度",display:true,color:"#2C2927",font:{size:14,weight:"600"}},
-        legend:{labels:{color:"#7A7470",boxWidth:12}}}}
-  });
-  const doneMin=tasks.filter(t=>t.completed).reduce((s,t)=>s+t.estimatedMinutes,0);
-  const totalMin=tasks.reduce((s,t)=>s+t.estimatedMinutes,0);
-  stackChart=new Chart(ctxS,{
-    type:"bar",
-    data:{labels:["今日计划时长 (分钟)"],
-      datasets:[
-        {label:"已完成",data:[doneMin],backgroundColor:"#C599AD",borderRadius:6},
-        {label:"待完成",data:[Math.max(0,totalMin-doneMin)],backgroundColor:"#EAE4DE",borderRadius:6}
-      ]},
+/* ============ 11. 渲染：数据统计视图 ============ */
+let ringChart,stackChart,trendChart;
+function renderStatsView(){
+  const res = buildTodayCharts("chartRing", "chartStack", ringChart, stackChart);
+  ringChart = res.ring;
+  stackChart = res.stack;
+
+  const ctxT=document.getElementById("chartTrend").getContext("2d");
+  if(trendChart)trendChart.destroy();
+
+  const labels7=[], data7=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(Date.now()-i*86400000);
+    const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    labels7.push(ds.slice(5));
+    const plan=appData.tasks.find(x=>x.date===ds);
+    const taskMin=plan ? plan.tasks.filter(t=>t.completed).reduce((s,t)=>s+t.estimatedMinutes,0) : 0;
+    const pomMin=appData.pomodoro.history.filter(h=>h.endedAt.slice(0,10)===ds).reduce((s,h)=>s+h.minutes,0);
+    data7.push(Math.max(taskMin, pomMin));
+  }
+  trendChart=new Chart(ctxT,{
+    type:"line",
+    data:{
+      labels:labels7,
+      datasets:[{
+        label:"有效学习时长 (分钟)",data:data7,
+        borderColor:"#6E92C7",backgroundColor:"rgba(198,216,243,0.45)",
+        fill:true,tension:0.35,pointRadius:4,pointBackgroundColor:"#2C2927"
+      }]
+    },
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{title:{text:"今日时间分布",display:true,color:"#2C2927",font:{size:14,weight:"600"}},
-        legend:{labels:{color:"#7A7470",boxWidth:12}}},
-      scales:{x:{stacked:true,grid:{display:false},ticks:{color:"#7A7470"}},
-        y:{stacked:true,grid:{color:"rgba(44,41,39,0.05)"},ticks:{color:"#7A7470"}}}}
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{color:"#6E6864",font:{size:13}}},y:{beginAtZero:true,grid:{color:"rgba(44,41,39,0.05)"},ticks:{color:"#6E6864",font:{size:13}}}}}
   });
-  // 热力图
+
   const heatGrid=document.getElementById("heatmapGrid");
   heatGrid.innerHTML="";
   for(let i=27;i>=0;i--){
     const d=new Date(Date.now()-i*86400000);
-    const ds=todayStr.call(d);
+    const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
     const plan=appData.tasks.find(x=>x.date===ds);
-    const doneCnt=plan?plan.tasks.filter(t=>t.completed).length:0;
+    const doneCnt=plan ? plan.tasks.filter(t=>t.completed).length : 0;
     let cls="heat-cell";
-    if(doneCnt>=4)cls+=" heat-l4";
-    else if(doneCnt===3)cls+=" heat-l3";
-    else if(doneCnt===2)cls+=" heat-l2";
-    else if(doneCnt===1)cls+=" heat-l1";
+    if(doneCnt>=4) cls+=" heat-l4";
+    else if(doneCnt===3) cls+=" heat-l3";
+    else if(doneCnt===2) cls+=" heat-l2";
+    else if(doneCnt===1) cls+=" heat-l1";
     const cell=document.createElement("div");
     cell.className=cls;
-    cell.title=`${ds}：完成 ${doneCnt} 项`;
-    cell.innerHTML=`<span>${d.getDate()}</span><span style="font-size:10px;opacity:0.8;">${doneCnt?doneCnt+'项':''}</span>`;
+    cell.title=`${ds}：完成 ${doneCnt} 项任务`;
+    cell.innerHTML=`<span>${d.getDate()}</span><span style="font-size:10px;opacity:0.85;">${doneCnt?doneCnt+'项':''}</span>`;
     heatGrid.appendChild(cell);
   }
 }
 
-/* ============ 渲染：科目管理 ============ */
-function renderCourses(){
+document.getElementById("toggleTrendBtn").onclick=function(){
+  const body=document.getElementById("trendCardBody");
+  const hidden=body.style.display==="none";
+  body.style.display=hidden?"block":"none";
+  this.textContent=hidden?"收起趋势图":"展开趋势图";
+};
+
+/* ============ 12. 精简版科目与批量章节管理 ============ */
+function renderCoursesView(){
   const wrap=document.getElementById("courseManageList");
   if(!appData.courses.length){
-    wrap.innerHTML='<div class="card"><div class="course-empty-hint">还没有任何科目，点击「+ 新增科目」添加。</div></div>';
+    wrap.innerHTML='<div class="card"><div class="course-empty-hint">还没有任何科目，点击右上角「+ 新增科目」即可一次填完科目与批量拆分章节。</div></div>';
     return;
   }
   wrap.innerHTML="";
   appData.courses.forEach(c=>{
     const card=document.createElement("div");
     card.className="card";
-    const chHtml=c.chapters.map((ch,idx)=>`
-      <span class="tag ${ch.isWeak?'tag-high':''}" style="cursor:pointer;margin:3px;" onclick="toggleWeak('${c.id}',${idx})" title="点击切换薄弱">
+    const chHtml = c.chapters.map((ch,idx)=>`
+      <span class="tag ${ch.isWeak?'tag-high':''}" style="cursor:pointer;margin:4px;" onclick="toggleChapterWeak('${c.id}',${idx})" title="点击切换薄弱状态">
         ${ch.isWeak?'🔥 ':''}${ch.name} (${ch.estimatedMinutes}m)
       </span>`).join("");
+
     card.innerHTML=`
       <div class="title">
         <span>${c.courseCode} · ${c.name}</span>
         <div style="display:flex;gap:8px;">
-          <button class="btn-default" style="font-size:13px;padding:6px 12px;" onclick="openCourseEditor('${c.id}')">编辑</button>
-          <button class="btn-default" style="font-size:13px;padding:6px 12px;color:#9E4758;background:#F6E6E8;" onclick="deleteCourse('${c.id}')">删除</button>
+          <button class="btn-default btn-sm" onclick="openCourseEditor('${c.id}')">编辑</button>
+          <button class="btn-default btn-sm" style="color:#9E4758;background:#F6E6E8;" onclick="deleteCourse('${c.id}')">删除</button>
         </div>
       </div>
-      <div class="subtitle">考试：${c.examDate} ｜ 难度 ${c.difficulty}/5 ｜ 掌握 ${c.mastery}%</div>
-      <div style="margin-top:8px;">${chHtml||'<span class="subtitle">暂无章节</span>'}</div>`;
+      <div class="subtitle">考试日期：${c.examDate} ｜ 难度：${c.difficulty}/5 ｜ 当前掌握度：${c.mastery}%</div>
+      <div style="margin-top:8px;">${chHtml || '<span class="subtitle">暂无章节</span>'}</div>
+    `;
     wrap.appendChild(card);
   });
 }
-window.toggleWeak=function(courseId,chIdx){
+
+window.toggleChapterWeak = function(courseId, chIdx){
   const c=appData.courses.find(x=>x.id===courseId);
-  if(!c||!c.chapters[chIdx])return;
-  c.chapters[chIdx].isWeak=!c.chapters[chIdx].isWeak;
-  saveData();renderCourses();
+  if(!c || !c.chapters[chIdx]) return;
+  c.chapters[chIdx].isWeak = !c.chapters[chIdx].isWeak;
+  saveData();renderCoursesView();renderHome();
 };
-window.deleteCourse=function(courseId){
-  if(!confirm("确定删除这门科目及其排期任务吗？"))return;
-  appData.courses=appData.courses.filter(x=>x.id!==courseId);
-  generatePlan();renderCourses();
+window.deleteCourse = function(courseId){
+  if(!confirm("确定删除这门科目及其排期任务吗？")) return;
+  appData.courses = appData.courses.filter(x=>x.id!==courseId);
+  generatePlan();renderCoursesView();renderHome();
 };
 
-/* ============ 科目编辑弹窗（简化） ============ */
-let editingCourseId=null;
-document.getElementById("addCourseBtn").onclick=()=>openCourseEditor(null);
-window.openCourseEditor=function(courseId){
-  editingCourseId=courseId;
-  const c=courseId?appData.courses.find(x=>x.id===courseId):{courseCode:"",name:"",examDate:"",difficulty:3,mastery:50,defaultChapterMinutes:60,chapters:[]};
-  const title=courseId?"编辑科目":"新增科目";
-  const body=document.getElementById("wizardBody");
-  document.getElementById("wizardTitle").textContent=title;
-  document.getElementById("stepIndicator").innerHTML="";
-  document.getElementById("inputPrev").style.visibility="hidden";
+let editingCourseId = null;
+let editingChapters = [];
+let showBatchPasteBox = false;
+
+document.getElementById("addSingleCourseBtn").onclick=()=>openCourseEditor(null);
+document.getElementById("quickAddCourseFromHome").onclick=()=>openCourseEditor(null);
+document.getElementById("gotoInput").onclick=()=>openCourseEditor(null);
+document.getElementById("courseEditCancel").onclick=()=>document.getElementById("courseEditModal").classList.remove("open");
+
+window.openCourseEditor = function(courseId){
+  editingCourseId = courseId;
+  showBatchPasteBox = false;
+  const c = courseId ? appData.courses.find(x=>x.id===courseId) : {
+    courseCode:"",
+    name:"",
+    examDate:defaultExamDateStr(),
+    difficulty:3,
+    mastery:50,
+    defaultChapterMinutes:60,
+    chapters:[{id:uid(),name:"第1章 核心概念",estimatedMinutes:60,isWeak:false}]
+  };
+  editingChapters = structuredClone(c.chapters);
+  document.getElementById("courseEditTitle").textContent = courseId ? "编辑科目与章节" : "快速新增科目";
+  const body = document.getElementById("courseEditBody");
   body.innerHTML=`
     <div class="form-row">
-      <div><div class="subtitle">课程编号</div><input id="ecCode" value="${c.courseCode}"></div>
-      <div><div class="subtitle">科目名</div><input id="ecName" value="${c.name}"></div>
+      <div><div class="subtitle">课程编号 *</div><input id="ecCode" value="${c.courseCode}" placeholder="如 AIDM7330"></div>
+      <div><div class="subtitle">科目名称 *</div><input id="ecName" value="${c.name}" placeholder="如 数据科学编程"></div>
+      <div><div class="subtitle">考试日期 *</div><input type="date" id="ecDate" value="${c.examDate}"></div>
     </div>
     <div class="form-row">
-      <div><div class="subtitle">考试日期</div><input type="date" id="ecDate" value="${c.examDate}"></div>
-      <div><div class="subtitle">难度(1-5)</div><input type="number" id="ecDiff" value="${c.difficulty}" min="1" max="5"></div>
-      <div><div class="subtitle">掌握(%)</div><input type="number" id="ecMast" value="${c.mastery}" min="0" max="100"></div>
+      <div><div class="subtitle">难度 (1-5)</div><input type="number" id="ecDiff" value="${c.difficulty}" min="1" max="5"></div>
+      <div><div class="subtitle">掌握度 (%)</div><input type="number" id="ecMast" value="${c.mastery}" min="0" max="100"></div>
+      <div><div class="subtitle">默认单章分钟</div><input id="ecDefaultMin" value="${c.defaultChapterMinutes||60}" type="number" min="10" max="300"></div>
     </div>
-    <div class="subtitle" style="margin-top:6px;">章节列表（每行一章）</div>
-    <div id="ecChapters"></div>
-    <button class="btn-default" id="ecAddCh" style="margin-top:6px;">+ 加章节</button>`;
-  const chList=document.getElementById("ecChapters");
-  c.chapters.forEach((ch,i)=>{
-    const row=document.createElement("div");
-    row.className="chapter-row";
-    row.innerHTML=`<input value="${ch.name}" style="flex:1;" data-i="${i}">
-      <input type="number" value="${ch.estimatedMinutes}" style="width:70px;" data-i="${i}">
-      <button class="btn-default" style="padding:5px 10px;font-size:12px;">×</button>`;
-    chList.appendChild(row);
-  });
-  document.getElementById("ecAddCh").onclick=()=>{
-    const row=document.createElement("div");
-    row.className="chapter-row";
-    row.innerHTML=`<input placeholder="章节名" style="flex:1;"><input type="number" value="60" style="width:70px;"><button class="btn-default" style="padding:5px 10px;font-size:12px;">×</button>`;
-    chList.appendChild(row);
-  };
-  document.getElementById("inputNext").textContent="保存";
-  document.getElementById("inputNext").onclick=()=>{
-    const code=document.getElementById("ecCode").value.trim();
-    const name=document.getElementById("ecName").value.trim();
-    const date=document.getElementById("ecDate").value;
-    if(!code||!name||!date){alert("请完整填写");return;}
-    const chapters=[];
-    chList.querySelectorAll(".chapter-row").forEach(row=>{
-      const inp=row.querySelectorAll("input");
-      if(inp[0].value.trim())chapters.push({id:uid(),name:inp[0].value.trim(),estimatedMinutes:Number(inp[1].value)||60,isWeak:false});
-    });
-    const payload={id:editingCourseId||uid(),courseCode:code,name,examDate:date,
-      difficulty:Number(document.getElementById("ecDiff").value)||3,
-      mastery:Number(document.getElementById("ecMast").value)||50,
-      defaultChapterMinutes:60,chapters};
-    if(editingCourseId){
-      const idx=appData.courses.findIndex(x=>x.id===editingCourseId);
-      if(idx>-1)appData.courses[idx]=payload;
-    }else{
-      appData.courses.push(payload);
+
+    <div class="subtitle" style="font-weight:600;margin-top:4px;">章节安排（支持一键生成或批量粘贴）</div>
+    <div class="batch-bar">
+      <span style="font-size:13px;color:var(--text2);">连建</span>
+      <input type="number" id="batchCountInput" value="5" min="1" max="50" style="width:68px;margin-bottom:0;padding:6px 10px;">
+      <span style="font-size:13px;color:var(--text2);">章</span>
+      <button class="btn-default btn-sm" type="button" id="batchGenBtn">一键生成</button>
+      <button class="btn-default btn-sm" type="button" id="togglePasteBtn">批量粘贴目录</button>
+      <button class="btn-default btn-sm" type="button" id="ecAddChBtn">+ 单条添加</button>
+    </div>
+
+    <div class="batch-panel" id="batchPastePanel" style="display:none;">
+      <div class="subtitle" style="font-size:13px;margin-bottom:6px;">每行一章，可写「章节名 | 分钟数」（不写分钟数则用默认时长）：</div>
+      <textarea id="batchPasteText" placeholder="第1章 导论 | 45&#10;第2章 回归分析 | 60&#10;第3章 聚类算法"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button class="btn-primary btn-sm" type="button" id="applyPasteBtn">解析并加入章节</button>
+      </div>
+    </div>
+
+    <div id="ecChapterList"></div>
+  `;
+
+  document.getElementById("batchGenBtn").onclick=()=>{
+    const cnt = Math.max(1, Math.min(50, Number(document.getElementById("batchCountInput").value)||1));
+    const defMin = Number(document.getElementById("ecDefaultMin").value)||60;
+    const baseLen = editingChapters.length;
+    for(let i=1;i<=cnt;i++){
+      editingChapters.push({id:uid(),name:`第 ${baseLen+i} 章`,estimatedMinutes:defMin,isWeak:false});
     }
-    generatePlan();
-    document.getElementById("inputModal").classList.remove("open");
-    renderCourses();
+    renderEditChapters();
   };
-  document.getElementById("inputPrev").onclick=()=>document.getElementById("inputModal").classList.remove("open");
-  document.getElementById("inputModal").classList.add("open");
+
+  document.getElementById("togglePasteBtn").onclick=()=>{
+    showBatchPasteBox = !showBatchPasteBox;
+    document.getElementById("batchPastePanel").style.display = showBatchPasteBox ? "block" : "none";
+  };
+
+  document.getElementById("applyPasteBtn").onclick=()=>{
+    const rawText = document.getElementById("batchPasteText").value || "";
+    const defMin = Number(document.getElementById("ecDefaultMin").value)||60;
+    const lines = rawText.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    if(!lines.length){alert("请先粘贴至少一行章节内容");return;}
+    lines.forEach(line=>{
+      const parts = line.split(/[|｜,，]/);
+      const chName = (parts[0]||"").trim();
+      const chMin = parts[1] ? (Number(parts[1].trim())||defMin) : defMin;
+      if(chName){
+        editingChapters.push({id:uid(),name:chName,estimatedMinutes:chMin,isWeak:false});
+      }
+    });
+    showBatchPasteBox = false;
+    document.getElementById("batchPastePanel").style.display = "none";
+    renderEditChapters();
+  };
+
+  document.getElementById("ecAddChBtn").onclick=()=>{
+    const defMin = Number(document.getElementById("ecDefaultMin").value)||60;
+    editingChapters.push({id:uid(),name:"",estimatedMinutes:defMin,isWeak:false});
+    renderEditChapters();
+  };
+
+  renderEditChapters();
+  document.getElementById("courseEditModal").classList.add("open");
 };
 
-/* ============ 四步录入向导 ============ */
+function renderEditChapters(){
+  const list=document.getElementById("ecChapterList");
+  list.innerHTML="";
+  editingChapters.forEach((ch,idx)=>{
+    const row=document.createElement("div");
+    row.className="chapter-row";
+    row.innerHTML=`
+      <input value="${ch.name}" placeholder="章节名称" style="flex:1;" oninput="editingChapters[${idx}].name=this.value">
+      <input type="number" value="${ch.estimatedMinutes}" style="width:82px;" oninput="editingChapters[${idx}].estimatedMinutes=Number(this.value)||60">
+      <button class="btn-default btn-sm" type="button" onclick="editingChapters.splice(${idx},1);renderEditChapters();">×</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+document.getElementById("courseEditSave").onclick=()=>{
+  const code=document.getElementById("ecCode").value.trim();
+  const name=document.getElementById("ecName").value.trim();
+  const date=document.getElementById("ecDate").value;
+  if(!code||!name||!date){alert("请完整填写课程编号、科目名称和考试日期");return;}
+  const defMin = Number(document.getElementById("ecDefaultMin").value)||60;
+  let validCh = editingChapters.filter(ch=>ch.name.trim());
+  if(validCh.length === 0){
+    validCh = [{id:uid(),name:`${name} 总复习`,estimatedMinutes:defMin,isWeak:false}];
+  }
+  const payload = {
+    id: editingCourseId || uid(),
+    courseCode: code, name, examDate: date,
+    difficulty: Number(document.getElementById("ecDiff").value)||3,
+    mastery: Number(document.getElementById("ecMast").value)||50,
+    defaultChapterMinutes: defMin,
+    chapters: validCh.map(ch=>({...ch, id: ch.id || uid()}))
+  };
+  if(editingCourseId){
+    const idx=appData.courses.findIndex(x=>x.id===editingCourseId);
+    if(idx>-1) appData.courses[idx]=payload;
+  } else {
+    appData.courses.push(payload);
+  }
+  generatePlan();
+  document.getElementById("courseEditModal").classList.remove("open");
+  if(currentView === "courses") renderCoursesView();
+  else renderHome();
+};
+
+/* ============ 13. 排期节奏向导 ============ */
 let wizardStep=0;
-let wizardDraft={dailyMinutes:120,stageMode:"three",courses:[]};
-const WIZARD_STEPS=["基础设置","添加科目","录入章节","确认生成"];
+let wizardDraft={courses:[],dailyMinutes:120,stageMode:"three"};
+const WIZARD_STEPS=["每日节奏","科目概览","确认重排"];
+
 function openWizard(){
   wizardStep=0;
-  wizardDraft={dailyMinutes:appData.config.dailyMinutes||120,stageMode:appData.config.stageMode||"three",courses:[]};
+  wizardDraft={
+    dailyMinutes:appData.config.dailyMinutes||120,
+    stageMode:appData.config.stageMode||"three",
+    courses:structuredClone(appData.courses)
+  };
   renderWizard();
   document.getElementById("inputModal").classList.add("open");
 }
+
 function renderWizard(){
   const ind=document.getElementById("stepIndicator");
   ind.innerHTML="";
@@ -959,123 +1266,71 @@ function renderWizard(){
   const body=document.getElementById("wizardBody");
   const title=document.getElementById("wizardTitle");
   document.getElementById("inputPrev").style.visibility=wizardStep===0?"hidden":"visible";
-  document.getElementById("inputNext").textContent=wizardStep===WIZARD_STEPS.length-1?"确认生成计划":"下一步";
+  document.getElementById("inputNext").textContent=wizardStep===WIZARD_STEPS.length-1?"立即生成计划":"下一步";
+
   if(wizardStep===0){
-    title.textContent="步骤 1/4 · 基础设置";
+    title.textContent="步骤 1/3 · 每日可用时长与阶段节奏";
     body.innerHTML=`
       <div class="subtitle">每天实际可以用来复习的时间（分钟）</div>
       <input type="number" id="wDaily" value="${wizardDraft.dailyMinutes}" min="15" max="720">
       <div class="subtitle" style="margin-top:8px;">阶段分配模式</div>
       <select id="wStageMode">
-        <option value="three" ${wizardDraft.stageMode==='three'?'selected':''}>三阶段（基础→专项→冲刺）</option>
-        <option value="two" ${wizardDraft.stageMode==='two'?'selected':''}>两段（系统复习→考前冲刺）</option>
-        <option value="single" ${wizardDraft.stageMode==='single'?'selected':''}>单段（按权重均衡推进）</option>
-      </select>`;
-  }else if(wizardStep===1){
-    title.textContent="步骤 2/4 · 添加科目";
-    body.innerHTML=`
-      <div class="form-row">
-        <div><div class="subtitle">课程编号</div><input id="wCode" placeholder="如 CS101"></div>
-        <div><div class="subtitle">科目名</div><input id="wName" placeholder="如 数据结构"></div>
-      </div>
-      <div class="form-row">
-        <div><div class="subtitle">考试日期</div><input type="date" id="wDate"></div>
-        <div><div class="subtitle">难度(1-5)</div><input type="number" id="wDifficulty" value="3" min="1" max="5"></div>
-      </div>
-      <div class="form-row">
-        <div><div class="subtitle">掌握度(0-100%)</div><input type="number" id="wMastery" value="50" min="0" max="100"></div>
-        <div><div class="subtitle">每章默认分钟</div><input type="number" id="wChapterMin" value="60" min="15" max="300"></div>
-      </div>
-      <button class="btn-default" id="wAddCourse" style="margin-top:4px;">+ 加入这门科目</button>
-      <div id="wCourseList" style="margin-top:12px;"></div>`;
-    document.getElementById("wAddCourse").onclick=()=>{
-      const code=document.getElementById("wCode").value.trim();
-      const name=document.getElementById("wName").value.trim();
-      const date=document.getElementById("wDate").value;
-      if(!code||!name||!date){alert("请填写完整");return;}
-      wizardDraft.courses.push({
-        id:uid(),courseCode:code,name,examDate:date,
-        difficulty:Number(document.getElementById("wDifficulty").value)||3,
-        mastery:Number(document.getElementById("wMastery").value)||50,
-        defaultChapterMinutes:Number(document.getElementById("wChapterMin").value)||60,
-        chapters:[{id:uid(),name:"第1章 核心概念",estimatedMinutes:Number(document.getElementById("wChapterMin").value)||60,isWeak:false}]
-      });
-      renderWizardCourseList();
-      ["wCode","wName","wDate"].forEach(id=>document.getElementById(id).value="");
-    };
-    renderWizardCourseList();
-  }else if(wizardStep===2){
-    title.textContent="步骤 3/4 · 录入章节清单";
-    if(wizardDraft.courses.length===0){
-      body.innerHTML='<div class="course-empty-hint">请先返回上一步添加至少一门科目。</div>';
-    }else{
-      let html="";
-      wizardDraft.courses.forEach((c,ci)=>{
-        html+=`<div style="margin-bottom:14px;"><div class="subtitle" style="font-weight:600;">${c.courseCode} ${c.name}</div>`;
-        c.chapters.forEach((ch,chIdx)=>{
-          html+=`<div class="chapter-row">
-            <input value="${ch.name}" data-ci="${ci}" data-ch="${chIdx}" class="wChName" style="flex:1;">
-            <input type="number" value="${ch.estimatedMinutes}" data-ci="${ci}" data-ch="${chIdx}" class="wChMin" style="width:76px;">
-            <button class="btn-default" style="padding:5px 10px;font-size:12px;" onclick="wizardDraft.courses[${ci}].chapters.splice(${chIdx},1);renderWizard();">×</button>
-          </div>`;
-        });
-        html+=`<button class="btn-default" style="padding:5px 10px;font-size:12px;" onclick="wizardDraft.courses[${ci}].chapters.push({id:uid(),name:'',estimatedMinutes:${c.defaultChapterMinutes},isWeak:false});renderWizard();">+ 加章节</button></div>`;
-      });
-      body.innerHTML=html;
-      body.querySelectorAll(".wChName").forEach(inp=>{
-        inp.oninput=()=>{wizardDraft.courses[inp.dataset.ci].chapters[inp.dataset.ch].name=inp.value;};
-      });
-      body.querySelectorAll(".wChMin").forEach(inp=>{
-        inp.oninput=()=>{wizardDraft.courses[inp.dataset.ci].chapters[inp.dataset.ch].estimatedMinutes=Number(inp.value)||60;};
-      });
-    }
-  }else if(wizardStep===3){
-    title.textContent="步骤 4/4 · 确认生成计划";
-    const modeMap={three:"三阶段",two:"两段",single:"单段"};
-    let html=`<div class="subtitle">每日 ${wizardDraft.dailyMinutes} 分钟 ｜ 策略：${modeMap[wizardDraft.stageMode]}</div>`;
+        <option value="three" ${wizardDraft.stageMode==='three'?'selected':''}>三阶段模式（基础复习 → 专项刷题 → 模拟冲刺）</option>
+        <option value="two" ${wizardDraft.stageMode==='two'?'selected':''}>两段模式（系统复习 → 考前冲刺）</option>
+        <option value="single" ${wizardDraft.stageMode==='single'?'selected':''}>单段模式（按权重均衡推进）</option>
+      </select>
+      <div class="subtitle" style="font-size:13px;">系统每天会自动留出约 15% 机动余量，避免计划过满引发焦虑。</div>`;
+  }
+  else if(wizardStep===1){
+    title.textContent="步骤 2/3 · 已录入科目核对";
+    let html = wizardDraft.courses.length
+      ? ""
+      : '<div class="course-empty-hint">当前还没有科目，可直接点下方按钮快速添加。</div>';
     wizardDraft.courses.forEach(c=>{
       html+=`<div class="course-mini-card" style="margin-bottom:8px;">
         <div style="font-weight:600;">${c.courseCode} ${c.name}</div>
-        <div class="subtitle" style="margin-bottom:0;">考试：${c.examDate} · ${c.chapters.length}章 · 难度${c.difficulty} · 掌握${c.mastery}%</div>
+        <div class="subtitle" style="margin-bottom:0;">考试：${c.examDate} · 共 ${c.chapters.length} 章 · 难度 ${c.difficulty} · 掌握 ${c.mastery}%</div>
       </div>`;
     });
+    html+=`<button class="btn-default btn-sm" type="button" id="wizardQuickAddBtn">+ 快速添加新科目</button>`;
     body.innerHTML=html;
+    document.getElementById("wizardQuickAddBtn").onclick=()=>{
+      document.getElementById("inputModal").classList.remove("open");
+      openCourseEditor(null);
+    };
+  }
+  else if(wizardStep===2){
+    title.textContent="步骤 3/3 · 确认生成计划";
+    const modeMap={three:"三阶段模式",two:"两段模式",single:"单段模式"};
+    body.innerHTML=`
+      <div class="course-mini-card">
+        <div style="font-weight:600;margin-bottom:6px;">排期参数摘要</div>
+        <div class="subtitle" style="margin-bottom:4px;">每日复习时长：${wizardDraft.dailyMinutes} 分钟（日上限约 ${Math.round(wizardDraft.dailyMinutes*0.85)} 分钟）</div>
+        <div class="subtitle" style="margin-bottom:4px;">阶段分配策略：${modeMap[wizardDraft.stageMode]}</div>
+        <div class="subtitle" style="margin-bottom:0;">共涉及 ${wizardDraft.courses.length} 门科目、${wizardDraft.courses.reduce((s,c)=>s+c.chapters.length,0)} 个复习章节</div>
+      </div>`;
   }
 }
-function renderWizardCourseList(){
-  const el=document.getElementById("wCourseList");
-  if(!el)return;
-  el.innerHTML="";
-  wizardDraft.courses.forEach(c=>{
-    const div=document.createElement("div");
-    div.className="course-mini-card";
-    div.style.cssText="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;";
-    div.innerHTML=`<span>${c.courseCode} ${c.name} · ${c.examDate}</span>
-      <button class="btn-default" style="padding:4px 10px;font-size:12px;" onclick="wizardDraft.courses=wizardDraft.courses.filter(x=>x.id!=='${c.id}');renderWizardCourseList();">移除</button>`;
-    el.appendChild(div);
-  });
-}
-document.getElementById("gotoInput").onclick=openWizard;
+
+document.getElementById("openWizardFromHome").onclick=openWizard;
+document.getElementById("openWizardFromCourses").onclick=openWizard;
+document.getElementById("closeWizardBtn").onclick=()=>document.getElementById("inputModal").classList.remove("open");
+
 document.getElementById("inputNext").onclick=()=>{
   if(wizardStep===0){
     wizardDraft.dailyMinutes=Number(document.getElementById("wDaily").value)||120;
     wizardDraft.stageMode=document.getElementById("wStageMode").value;
   }
-  if(wizardStep===1&&wizardDraft.courses.length===0){alert("请先添加至少一门科目");return;}
   if(wizardStep===2){
-    for(const c of wizardDraft.courses){
-      c.chapters=c.chapters.filter(ch=>ch.name.trim());
-      if(c.chapters.length===0){alert(`请为「${c.name}」至少保留一个章节`);return;}
-    }
-  }
-  if(wizardStep===3){
     appData.config.dailyMinutes=wizardDraft.dailyMinutes;
     appData.config.stageMode=wizardDraft.stageMode;
-    appData.courses=wizardDraft.courses;
-    generatePlan();
+    if(appData.courses.length > 0){
+      generatePlan();
+    } else {
+      saveData();
+    }
     document.getElementById("inputModal").classList.remove("open");
-    switchView("home");
-    triggerPetCelebrate("专属复习计划生成好啦 ✨");
+    switchView(currentView);
     return;
   }
   wizardStep++;
@@ -1083,63 +1338,86 @@ document.getElementById("inputNext").onclick=()=>{
 };
 document.getElementById("inputPrev").onclick=()=>{if(wizardStep>0){wizardStep--;renderWizard();}};
 
-/* ============ 复盘 ============ */
+/* ============ 14. 复盘弹窗 ============ */
 document.getElementById("reviewBanner").onclick=openReview;
+document.getElementById("openReviewBtn").onclick=openReview;
 document.getElementById("reviewCancel").onclick=()=>document.getElementById("reviewModal").classList.remove("open");
+
 function openReview(){
   const body=document.getElementById("reviewBody");
-  const todayPom=appData.pomodoro.history.filter(h=>h.endedAt.slice(0,10)===todayStr()).reduce((s,h)=>s+h.minutes,0);
+  const todayPom=appData.pomodoro.history.filter(h=>h.endedAt.slice(0,10)===todayStr())
+    .reduce((s,h)=>s+h.minutes,0);
   body.innerHTML=`
     <div class="subtitle">今日实际专注时长（分钟）</div>
     <input type="number" id="rvMinutes" value="${todayPom}" min="0">
     <div class="subtitle">明天可用复习时长（分钟）</div>
     <input type="number" id="rvTomorrowMin" value="${appData.config.dailyMinutes||120}" min="15">
-    <div class="subtitle">勾选还不够熟练的薄弱章节</div>
+    <div class="subtitle">勾选还不够熟练的薄弱章节（自动提高后续排期优先级）</div>
     <div class="review-weak-list" id="rvWeakList"></div>`;
   const weakList=document.getElementById("rvWeakList");
-  appData.courses.forEach(c=>{
-    c.chapters.forEach(ch=>{
-      const lb=document.createElement("label");
-      lb.innerHTML=`<input type="checkbox" ${ch.isWeak?"checked":""} value="${c.id}|${ch.id}"> ${c.courseCode} · ${ch.name}`;
-      weakList.appendChild(lb);
+  if(appData.courses.length===0){
+    weakList.innerHTML='<span class="subtitle">暂无科目章节</span>';
+  } else {
+    appData.courses.forEach(c=>{
+      c.chapters.forEach(ch=>{
+        const lb=document.createElement("label");
+        lb.innerHTML=`<input type="checkbox" ${ch.isWeak?"checked":""} value="${c.id}|${ch.id}"> ${c.courseCode} · ${ch.name}`;
+        weakList.appendChild(lb);
+      });
     });
-  });
+  }
   document.getElementById("reviewModal").classList.add("open");
 }
+
 document.getElementById("reviewSubmit").onclick=()=>{
   const minutes=Number(document.getElementById("rvMinutes").value)||0;
   const tomorrowMin=Number(document.getElementById("rvTomorrowMin").value)||120;
   const weakIds=[...document.querySelectorAll("#rvWeakList input:checked")].map(cb=>cb.value);
   appData.reviews.push({date:todayStr(),actualMinutes:minutes,weakChapterIds:weakIds,tomorrowAvailableMinutes:tomorrowMin});
+
   appData.courses.forEach(c=>c.chapters.forEach(ch=>ch.isWeak=false));
   weakIds.forEach(v=>{
     const[courseId,chapterId]=v.split("|");
     const c=appData.courses.find(x=>x.id===courseId);
     if(c){const ch=c.chapters.find(x=>x.id===chapterId);if(ch)ch.isWeak=true;}
   });
+
   const todayPlan=appData.tasks.find(d=>d.date===todayStr());
-  let newDays=todayPlan?[{date:todayStr(),tasks:todayPlan.tasks}]:[];
+  let newDays=todayPlan ? [{date:todayStr(),tasks:todayPlan.tasks}] : [];
   let pool=[];
-  if(todayPlan){todayPlan.tasks.filter(t=>!t.completed).forEach(t=>pool.push({...t,id:uid(),completed:false,completedAt:null}));}
-  appData.tasks.forEach(d=>{if(d.date===todayStr())return;d.tasks.forEach(t=>{if(!t.completed)pool.push({...t,id:uid(),completed:false,completedAt:null});});});
+  if(todayPlan){
+    todayPlan.tasks.filter(t=>!t.completed).forEach(t=>{
+      pool.push({...t,id:uid(),completed:false,completedAt:null});
+    });
+  }
+  appData.tasks.forEach(d=>{
+    if(d.date===todayStr())return;
+    d.tasks.forEach(t=>{if(!t.completed)pool.push({...t,id:uid(),completed:false,completedAt:null});});
+  });
   pool.sort((a,b)=>b.priority-a.priority);
+
   const dailyCap=tomorrowMin*0.85;
   let cursor=new Date(new Date(todayStr()).getTime()+86400000);
   let idx=0,guard=0;
   while(idx<pool.length&&guard<90){
     const ds=cursor.toISOString().slice(0,10);
     let dayTasks=[],used=0;
-    while(idx<pool.length){const t=pool[idx];if(used+t.estimatedMinutes>dailyCap&&dayTasks.length>0)break;dayTasks.push(t);used+=t.estimatedMinutes;idx++;}
+    while(idx<pool.length){
+      const t=pool[idx];
+      if(used+t.estimatedMinutes>dailyCap && dayTasks.length>0)break;
+      dayTasks.push(t);used+=t.estimatedMinutes;idx++;
+    }
     newDays.push({date:ds,tasks:dayTasks});
-    cursor=new Date(cursor.getTime()+86400000);guard++;
+    cursor=new Date(cursor.getTime()+86400000);
+    guard++;
   }
-  appData.tasks=newDays;saveData();
+  appData.tasks=newDays;
+  saveData();
   document.getElementById("reviewModal").classList.remove("open");
   switchView(currentView);
-  triggerPetCelebrate("复盘完成！明日计划已自动微调 ✨");
 };
 
-/* ============ 设置 ============ */
+/* ============ 15. 设置抽屉与导入导出 ============ */
 document.getElementById("openSetting").onclick=()=>{
   document.getElementById("settingDrawer").classList.add("open");
   document.getElementById("overlay").classList.add("open");
@@ -1152,6 +1430,7 @@ document.getElementById("overlay").onclick=()=>{
 };
 document.getElementById("petEnable").onchange=e=>{appData.pet.enable=e.target.checked;appData.pet.hidden=false;saveData();renderPet();};
 document.getElementById("petName").oninput=e=>{appData.pet.name=e.target.value.slice(0,20);saveData();renderPet();};
+
 document.getElementById("exportJson").onclick=()=>{
   const copy=structuredClone(appData);delete copy.pet.img;
   const blob=new Blob([JSON.stringify(copy,null,2)],{type:"application/json"});
@@ -1172,7 +1451,7 @@ document.getElementById("clearAll").onclick=()=>{
   const input=prompt('请输入"确认清空"以重置所有本地数据');
   if(input==="确认清空"){
     localStorage.removeItem("studyAppData");
-    if(idb)idb.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).clear();
+    if(idb) idb.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).clear();
     appData=structuredClone(DEFAULT_DATA);
     saveData();switchView("home");renderPet();
   }
@@ -1181,42 +1460,36 @@ document.querySelectorAll(".petUpload").forEach(el=>{
   el.onchange=async e=>{
     const key=el.dataset.key;const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=()=>{setPetImg(key,r.result);appData.pet.img[key]=r.result;renderPet();};
+    r.onload=()=>{
+      setPetImg(key,r.result);
+      appData.pet.img[key]=r.result;
+      appData.pet.enable=true;
+      appData.pet.hidden=false;
+      document.getElementById("petEnable").checked=true;
+      saveData();
+      renderPet();
+    };
     r.readAsDataURL(f);
   };
 });
 
-/* ============ 启动 ============ */
-function startClock(){
-  const timeEl=document.getElementById("clockTime");
-  const dateEl=document.getElementById("clockDate");
-  function tick(){
-    const n=new Date();
-    const h=String(n.getHours()).padStart(2,"0");
-    const m=String(n.getMinutes()).padStart(2,"0");
-    const s=String(n.getSeconds()).padStart(2,"0");
-    timeEl.textContent=`${h}:${m}:${s}`;
-    dateEl.textContent=`${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日`;
-  }
-  tick();setInterval(tick,1000);
-  const now=new Date();
-  document.getElementById("todayDateText").textContent=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
-}
+/* ============ 16. 开幕动画与启动校验 ============ */
 async function boot(){
-  try{await openIDB();await loadPetAllImg();}catch(e){console.warn("IDB skipped",e);}
-  startClock();
-  renderHome();renderPet();
+  startLiveClock();
+  try {
+    await openIDB();
+    await loadPetAllImg();
+  } catch(e) { console.warn("IDB skipped", e); }
+
+  renderHome();
+  renderPet();
+
   setTimeout(()=>{
-    document.getElementById("splash").classList.add("hide");
-    if(!appData.courses||appData.courses.length===0){
-      setTimeout(()=>openWizard(),350);
-    }
-  },1800);
-  setInterval(()=>{
-    if(petState==="idle"&&Date.now()-appData.pet.lastBubble>25*60*1000&&document.visibilityState==="visible"){
-      pickBubble();
-    }
-  },30000);
+    const splash = document.getElementById("splashScreen");
+    const app = document.getElementById("appContainer");
+    splash.classList.add("fade-out");
+    app.classList.add("ready");
+  }, 1500);
 }
 boot();
 </script>
