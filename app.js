@@ -487,6 +487,7 @@ function syncFocusElapsed(now = Date.now()) {
 
 function startTimer() {
   const p = appData.pomodoro;
+
   if (p.running) return;
 
   if (p.mode === 'countdown' && p.current <= 0) {
@@ -500,20 +501,20 @@ function startTimer() {
   p.running = true;
   p.lastTick = Date.now();
 
-  save();
   stopFocusIntervals();
+  save();
 
-  // 开始后立即生成第一颗，之后每5秒生成一颗
+  // 开始后立即出现第一颗小球
   createFallingBall();
 
-// 每 5 秒生成一颗小球
+  // 此后每隔5秒生成一颗
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
       createFallingBall();
     }
-  }, 5000); 
+  }, 5000);
 
-  // 独立计时
+  // 计时器独立运行
   timerInterval = setInterval(() => {
     if (!p.running) return;
 
@@ -541,11 +542,7 @@ function startTimer() {
       alert('本次专注已完成。');
     }
   }, 250);
-  const toggleBtn = document.getElementById('timerToggleBtn');
-  if (toggleBtn) toggleBtn.textContent = '继续专注';
 
-  const homeBtn = document.getElementById('pomStart');
-  if (homeBtn) homeBtn.textContent = '继续专注';
   renderPomodoro();
 }
 
@@ -694,63 +691,74 @@ function renderFocusHistory() {
 
 
 function createFallingBall() {
-  const container = document.getElementById('ballsBg');
   const overlay = document.getElementById('timerOverlay');
+  const container = document.getElementById('ballsBg');
 
-  if (!container || !overlay) {
-    console.error('专注小球容器不存在，请检查 HTML 中的 ballsBg');
+  if (!overlay || !container) {
+    console.error('小球创建失败：找不到 timerOverlay 或 ballsBg');
     return;
   }
 
-  // 创建小球
-  const ball = document.createElement('span');
-  const size = 10 + Math.random() * 12;
-  const left = 3 + Math.random() * 94;
-  const drift = Math.random() * 70 - 35;
+  // 强制确保背景层存在且可显示
+  Object.assign(container.style, {
+    position: 'absolute',
+    inset: '0',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    pointerEvents: 'none',
+    zIndex: '1'
+  });
+
+  const ball = document.createElement('div');
+
+  const size = 12 + Math.random() * 10;
+  const left = 2 + Math.random() * 96;
+  const drift = Math.random() * 100 - 50;
   const duration = 6000 + Math.random() * 2500;
 
   Object.assign(ball.style, {
     position: 'absolute',
     display: 'block',
-    top: '-24px',
+    top: '-25px',
     left: left + '%',
     width: size + 'px',
     height: size + 'px',
     borderRadius: '50%',
-    background: '#c88b75',
-    boxShadow: '0 2px 12px rgba(200,139,117,.25)',
-    opacity: '0.85',
-    zIndex: '1',
-    pointerEvents: 'none'
+    background: 'radial-gradient(circle at 30% 25%, #f8e4dc, #c88b75)',
+    boxShadow: '0 2px 15px rgba(200,139,117,.3)',
+    opacity: '0',
+    pointerEvents: 'none',
+    zIndex: '1'
   });
 
   container.appendChild(ball);
 
-  // 原生动画：不再依赖旧 CSS keyframes
+  // 原生动画，不依赖 CSS keyframes
   const animation = ball.animate([
     {
-      transform: 'translate3d(0, 0, 0)',
+      transform: 'translateY(0)',
       opacity: 0
     },
     {
-      transform: 'translate3d(0, 10vh, 0)',
+      transform: 'translateY(10vh)',
       opacity: 0.85,
       offset: 0.12
     },
     {
-      transform: `translate3d(${drift}px, ${window.innerHeight + 60}px, 0)`,
+      transform: `translate(${drift}px, ${window.innerHeight + 80}px)`,
       opacity: 0
     }
   ], {
-    duration,
+    duration: duration,
     easing: 'linear',
     fill: 'forwards'
   });
 
   animation.onfinish = () => ball.remove();
+
+  console.log('🌸 已生成一颗专注小球');
 }
-
-
 
 
 // ========== 图表 ==========
