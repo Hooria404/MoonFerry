@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyRoom · 温暖手账自习板</title>
+<script src="https://fastly.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --outer-bg:#EAE3E8;
+  --bg:#FAF8F5;
+  --card-cream:#FDFBF7;
+  --card-blue:#C6D8F3;
+  --card-pink:#EDE1E7;
+  --line:rgba(44,41,39,0.08);
+  --primary:#2C2927;
+  --primary-hover:#45403D;
+  --accent-blue:#6E92C7;
+  --accent-pink:#B88A9E;
+  --text:#2C2927;
+  --text2:#7A7470;
+  --card-shadow:0 8px 24px rgba(44,41,39,0.04);
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:"PingFang SC","Hiragino Sans GB",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+body{background:var(--outer-bg);color:var(--text);padding:24px 16px 96px;min-height:100vh;}
+.app-container{max-width:1040px;margin:0 auto;background:var(--bg);border-radius:26px;padding:32px 36px 48px;box-shadow:0 20px 50px rgba(44,41,39,0.07);border:1px solid rgba(255,255,255,0.7);}
+.top-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;letter-spacing:-0.3px;}
+.brand-dot{width:10px;height:10px;border-radius:50%;background:var(--text);display:inline-block;}
+.nav-right{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--text2);}
+.hero-header{display:flex;align-items:center;gap:18px;margin-bottom:32px;}
+.hero-avatar{width:56px;height:56px;border-radius:50%;background:var(--card-pink);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;border:2px solid #fff;box-shadow:0 4px 12px rgba(44,41,39,0.06);}
+.hero-sub{font-size:13px;color:var(--text2);letter-spacing:0.5px;margin-bottom:4px;}
+.hero-title{font-size:27px;font-weight:700;letter-spacing:-0.5px;color:var(--text);margin-bottom:4px;}
+.hero-desc{font-size:14px;color:var(--text2);}
+.hero-clock{
+  text-align:right;flex-shrink:0;
+  padding-left:20px;border-left:1px solid var(--line);
+}
+.clock-time{
+  font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;
+  color:var(--text);letter-spacing:1px;line-height:1.1;
+}
+.clock-date{font-size:13px;color:var(--text2);margin-top:4px;}
+@media(max-width:600px){
+  .hero-clock{display:none;}
+}
+button{cursor:pointer;border:none;border-radius:999px;padding:9px 18px;font-size:14px;font-weight:500;transition:all 0.2s ease;}
+.btn-primary{background:var(--primary);color:#FAF8F5;box-shadow:0 4px 12px rgba(44,41,39,0.14);}
+.btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px);}
+.btn-default{background:rgba(44,41,39,0.05);color:var(--text);}
+.btn-default:hover{background:rgba(44,41,39,0.1);}
+.btn-pill-outline{background:#fff;border:1px solid var(--line);color:var(--text);padding:7px 14px;font-size:14px;}
+.section-label{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.card{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--card-shadow);padding:22px;margin-bottom:20px;background:var(--card-cream);}
+.card-blue{background:var(--card-blue);border-color:rgba(110,146,199,0.2);}
+.card-pink{background:var(--card-pink);border-color:rgba(184,138,158,0.2);}
+.flex-row{display:flex;gap:18px;flex-wrap:wrap;align-items:stretch;}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.title{font-size:17px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
+.subtitle{font-size:14px;color:var(--text2);margin-bottom:8px;line-height:1.5;}
+.pom-dial-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 0 6px;}
+.pom-dial{width:142px;height:142px;border-radius:50%;border:2px dashed rgba(44,41,39,0.22);background:rgba(255,255,255,0.35);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:16px;}
+.pom-time-text{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);letter-spacing:0.5px;}
+.pom-status-hint{font-size:12px;color:var(--text2);margin-top:2px;}
+.course-mini-card{background:rgba(255,255,255,0.72);border:1px solid rgba(44,41,39,0.06);border-radius:14px;padding:14px 16px;}
+.course-empty-hint{font-size:14px;color:var(--text2);padding:12px 0;}
+input,select,textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px;color:var(--text);outline:none;}
+input:focus{border-color:var(--text2);}
+input[type="checkbox"]{width:auto;margin-bottom:0;accent-color:var(--primary);}
+.banner{background:#F6E6E8;color:#7D4454;border:1px solid rgba(184,138,158,0.25);padding:12px 18px;border-radius:14px;margin-bottom:20px;cursor:pointer;font-size:14px;font-weight:500;}
+.task-item{display:flex;align-items:center;gap:12px;padding:12px 10px;border-bottom:1px solid var(--line);font-size:15px;}
+.task-item:last-child{border-bottom:none;}
+.task-done{opacity:0.55;text-decoration:line-through;}
+.tag{font-size:12px;padding:3px 10px;border-radius:999px;background:rgba(44,41,39,0.06);color:var(--text);font-weight:500;}
+.tag-high{background:#F6E6E8;color:#9E4758;}
+.tag-mid{background:#FFF4E0;color:#9A6B2F;}
+.tag-low{background:#EFEFEA;color:#7A7470;}
+
+/* 视图切换 */
+.spa-view{display:none;animation:viewFade 0.25s ease;}
+.spa-view.active{display:block;}
+@keyframes viewFade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* 首页迷你统计卡 */
+.mini-stats-card{
+  cursor:pointer;transition:transform 0.2s ease,box-shadow 0.2s ease;
+}
+.mini-stats-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(44,41,39,0.1);}
+.mini-stats-row{display:flex;gap:14px;align-items:center;}
+.mini-stat-circle{
+  width:64px;height:64px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;color:var(--text);
+  background:conic-gradient(#7B9CC9 var(--pct,0%),#EAE4DE 0);
+  position:relative;
+}
+.mini-stat-circle::after{
+  content:'';position:absolute;inset:6px;border-radius:50%;background:var(--card-cream);
+}
+.mini-stat-circle span{position:relative;z-index:1;}
+.mini-stat-label{font-size:14px;color:var(--text2);}
+.mini-stat-num{font-size:20px;font-weight:700;color:var(--text);}
+.mini-stats-arrow{margin-left:auto;color:var(--text2);font-size:18px;}
+
+.heatmap-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:10px;}
+.heat-cell{
+  aspect-ratio:1/1;border-radius:10px;background:rgba(44,41,39,0.05);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:12px;color:var(--text2);border:1px solid rgba(44,41,39,0.04);
+}
+.heat-l1{background:#DCE7F7;color:var(--text);}
+.heat-l2{background:#B5CCE8;color:var(--text);}
+.heat-l3{background:#82A4D1;color:#fff;font-weight:600;}
+.heat-l4{background:#5277AB;color:#fff;font-weight:600;}
+
+.plan-table{width:100%;border-collapse:collapse;font-size:14px;}
+.plan-table th,.plan-table td{padding:11px 10px;text-align:left;border-bottom:1px solid var(--line);}
+.plan-table th{font-weight:600;color:var(--text2);font-size:13px;}
+
+.setting-drawer{position:fixed;top:0;right:0;width:330px;height:100vh;background:var(--bg);border-left:1px solid var(--line);padding:24px;transform:translateX(100%);transition:0.28s cubic-bezier(0.22,1,0.36,1);z-index:40;overflow-y:auto;}
+.setting-drawer.open{transform:translateX(0);}
+.overlay{position:fixed;inset:0;background:rgba(44,41,39,0.25);backdrop-filter:blur(2px);z-index:35;display:none;}
+.overlay.open{display:block;}
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;display:none;}
+.modal.open{display:flex;}
+.modal-inner{background:var(--bg);border-radius:20px;width:min(520px,92vw);max-height:88vh;overflow-y:auto;padding:24px;border:1px solid var(--line);box-shadow:0 20px 40px rgba(44,41,39,0.12);}
+.step-indicator{display:flex;gap:6px;margin-bottom:18px;}
+.step-dot{width:8px;height:8px;border-radius:50%;background:rgba(44,41,39,0.15);}
+.step-dot.active{background:var(--primary);}
+.step-dot.done{background:var(--accent-blue);}
+.form-row{display:flex;gap:10px;}
+.form-row>div{flex:1;}
+.chapter-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.chapter-row input{margin-bottom:0;}
+
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.chart-box{height:200px;position:relative;}
+
+/* 桌宠 */
+.pet-wrap{position:fixed;z-index:30;width:160px;height:180px;user-select:none;}
+.pet{width:88px;height:88px;cursor:grab;transition:transform 0.15s;margin:0 auto;border-radius:50%;}
+.pet.grabbing{cursor:grabbing;opacity:0.75;}
+.pet-bubble{position:absolute;top:-38px;left:50%;transform:translateX(-50%);background:var(--card-cream);border:1px solid var(--line);box-shadow:0 6px 16px rgba(44,41,39,0.08);border-radius:16px;padding:6px 12px;font-size:13px;color:var(--text);white-space:nowrap;opacity:0;transition:opacity 0.3s;pointer-events:none;}
+.pet-bubble.show{opacity:1;}
+.pet-timer{text-align:center;font-weight:700;font-size:14px;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums;}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+@keyframes breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.03);}}
+@keyframes bounce{0%{transform:scale(1);}50%{transform:scale(1.12);}100%{transform:scale(1);}}
+.pet-idle{animation:float 3s ease-in-out infinite;}
+.pet-focus{animation:breathe 2.4s ease-in-out infinite;}
+.pet-cele{animation:bounce 0.45s ease-out;}
+@media (prefers-reduced-motion:reduce){
+  .pet-idle,.pet-focus,.pet-cele{animation:none !important;}
+}
+@media(max-width:768px){
+  body{padding:10px 10px 60px;}
+  .app-container{padding:20px 18px 32px;border-radius:20px;}
+  .pet-wrap{display:none;}
+  .chart-row{grid-template-columns:1fr;}
+  .chart-box{height:180px;}
+  .form-row{flex-direction:column;gap:0;}
+}
+.pet-menu{position:fixed;background:var(--card-cream);border:1px solid var(--line);box-shadow:0 8px 20px rgba(44,41,39,0.1);border-radius:12px;padding:6px;z-index:32;display:none;}
+.pet-menu.open{display:block;}
+.pet-menu div{padding:7px 12px;cursor:pointer;font-size:14px;border-radius:8px;}
+.pet-menu div:hover{background:rgba(44,41,39,0.05);}
+.review-weak-list{max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;}
+.review-weak-list label{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:14px;cursor:pointer;}
+.hidden{display:none !important;}
+
+/* 开幕动画 */
+.splash{
+  position:fixed;inset:0;z-index:100;
+  background:var(--outer-bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.6s ease,visibility 0.6s;
+}
+.splash.hide{opacity:0;visibility:hidden;pointer-events:none;}
+.splash-pet{width:100px;height:100px;margin-bottom:20px;animation:splashFloat 1.6s ease-in-out infinite;}
+.splash-title{font-size:24px;font-weight:700;color:var(--text);letter-spacing:0.5px;margin-bottom:8px;}
+.splash-sub{font-size:14px;color:var(--text2);letter-spacing:1px;}
+.splash-dots{margin-top:18px;display:flex;gap:6px;}
+.splash-dots span{width:6px;height:6px;border-radius:50%;background:var(--text2);animation:dotPulse 1.2s ease-in-out infinite;}
+.splash-dots span:nth-child(2){animation-delay:0.2s;}
+.splash-dots span:nth-child(3){animation-delay:0.4s;}
+@keyframes splashFloat{0%,100%{transform:translateY(0) scale(1);}50%{transform:translateY(-8px) scale(1.05);}}
+@keyframes dotPulse{0%,100%{opacity:0.3;transform:scale(1);}50%{opacity:1;transform:scale(1.3);}}
+@media (prefers-reduced-motion:reduce){
+  .splash-pet,.splash-dots span{animation:none !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- 开幕动画 -->
+<div class="splash" id="splash">
+  <svg class="splash-pet" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="34" fill="#FDFBF7" stroke="#2C2927" stroke-width="2.2"/>
+    <circle cx="38" cy="44" r="3.2" fill="#2C2927"/>
+    <circle cx="62" cy="44" r="3.2" fill="#2C2927"/>
+    <path d="M41 61 Q50 69 59 61" fill="none" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="30" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
+    <circle cx="70" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
+  </svg>
+  <div class="splash-title">StudyRoom.</div>
+  <div class="splash-sub">SLOW & STEADY · 准备你的自习空间</div>
+  <div class="splash-dots"><span></span><span></span><span></span></div>
+</div>
+
+<div class="app-container">
+  <div class="top-nav">
+    <div class="brand"><span class="brand-dot"></span><span>StudyRoom.</span></div>
+    <div class="nav-right">
+      <span id="todayDateText"></span>
+      <button class="btn-pill-outline" id="openSetting">偏好设置 ⚙</button>
+    </div>
+  </div>
+
+  <div class="hero-header">
+    <div class="hero-avatar">☕</div>
+    <div style="flex:1;">
+      <div class="hero-sub">SLOW & STEADY · 纯本地自习空间</div>
+      <div class="hero-title" id="heroGreeting">嗨，今天也一起慢慢学吧。</div>
+      <div class="hero-desc">不赶时间，不焦虑。把大目标拆成今天能完成的小方块。</div>
+    </div>
+    <div class="hero-clock">
+      <div class="clock-time" id="clockTime">--:--:--</div>
+      <div class="clock-date" id="clockDate">----年--月--日</div>
+    </div>
+  </div>
+
+  <div class="banner" id="reviewBanner" style="display:none">
+    🌙 夜色渐深，今天还没写下复盘小结，点击记录今日收获 →
+  </div>
+
+  <!-- 首页视图 -->
+  <div class="spa-view active" id="view-home">
+    <div class="section-label"><span>今日状态与专注</span></div>
+    <div class="flex-row" style="margin-bottom:6px;">
+      <div class="card card-blue" style="flex:1;min-width:250px;">
+        <div class="title"><span>专注时钟</span><span style="font-size:13px;font-weight:400;opacity:0.75;">一程</span></div>
+        <div class="pom-dial-wrap">
+          <div class="pom-dial">
+            <div class="pom-time-text" id="pomTime">00:00</div>
+            <div class="pom-status-hint" id="pomHint">准备就绪</div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button class="btn-primary" id="pomStart">开始专注</button>
+            <button class="btn-default" style="background:rgba(255,255,255,0.55)" id="pomReset">重置</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1.25;min-width:270px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div class="title"><span>今日手账清单</span><span style="font-size:13px;font-weight:400;color:var(--text2);">待办</span></div>
+          <div id="taskList"></div>
+          <div id="taskEmpty" style="display:none;padding:18px 0;color:var(--text2);font-size:14px;line-height:1.8;">
+            纸页还是空白的，先写下今天想完成的一件小事吧。<br>
+            <button class="btn-primary" style="margin-top:12px;" id="gotoInput">+ 录入复习计划</button>
+          </div>
+        </div>
+        <div class="subtitle" style="margin-top:12px;margin-bottom:0;font-size:13px;">勾选即可记录完成时间，无需完美主义</div>
+      </div>
+
+      <div class="card card-pink" style="flex:1;min-width:250px;display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <div class="title"><span>重点与薄弱点</span><span style="font-size:13px;font-weight:400;opacity:0.75;">留意</span></div>
+          <div id="weakList" style="font-size:14px;line-height:1.7;color:var(--text);padding:8px 0;">暂无标记的薄弱章节，保持节奏就好。</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.5);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--text2);">
+          💡 遇到卡壳的知识点，先标记再回头拆解。
+        </div>
+      </div>
+    </div>
+
+    <!-- 首页迷你统计卡（点击跳统计页） -->
+    <div class="section-label"><span>今日学习概览</span></div>
+    <div class="card mini-stats-card" id="miniStatsCard">
+      <div class="mini-stats-row">
+        <div class="mini-stat-circle" id="miniRing" style="--pct:0;"><span id="miniRingText">0%</span></div>
+        <div>
+          <div class="mini-stat-label">今日完成度</div>
+          <div class="mini-stat-num" id="miniDoneNum">0 / 0</div>
+        </div>
+        <div style="margin-left:24px;">
+          <div class="mini-stat-label">今日专注</div>
+          <div class="mini-stat-num" id="miniPomMin">0 分钟</div>
+        </div>
+        <div class="mini-stats-arrow">→</div>
+      </div>
+    </div>
+
+    <div class="section-label">
+      <span>课程与考试倒计时</span>
+      <span id="totalProgress" style="font-weight:400;">总进度：0%</span>
+    </div>
+    <div class="card">
+      <div class="grid-3" id="courseGrid"></div>
+      <div class="course-empty-hint" id="courseEmptyHint">还没有添加考试科目，点击上方「录入复习计划」即可自动生成倒计时卡片。</div>
+    </div>
+  </div>
+
+  <!-- 计划总览视图 -->
+  <div class="spa-view" id="view-plan">
+    <div class="section-label"><span>完整复习计划表</span></div>
+    <div class="card" style="margin-bottom:0;">
+      <div id="planWrap">
+        <div class="course-empty-hint">生成计划后，这里会展示从今天到最后一门考试的完整复习安排。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计视图 -->
+  <div class="spa-view" id="view-stats">
+    <div class="section-label"><span>今日时间足迹</span></div>
+    <div class="card">
+      <div class="chart-row">
+        <div class="chart-box"><canvas id="chartRing"></canvas></div>
+        <div class="chart-box"><canvas id="chartStack"></canvas></div>
+      </div>
+    </div>
+    <div class="section-label"><span>近 28 天学习足迹</span></div>
+    <div class="card" style="margin-bottom:0;">
+      <div class="heatmap-grid" id="heatmapGrid"></div>
+    </div>
+  </div>
+
+  <!-- 科目管理视图 -->
+  <div class="spa-view" id="view-courses">
+    <div class="section-label"><span>科目管理</span><button class="btn-primary" id="addCourseBtn" style="font-size:13px;padding:6px 14px;">+ 新增科目</button></div>
+    <div id="courseManageList"></div>
+  </div>
+</div>
+
+<!-- 录入向导弹窗 -->
+<div class="modal" id="inputModal">
+  <div class="modal-inner">
+    <div class="step-indicator" id="stepIndicator"></div>
+    <div class="title" id="wizardTitle">录入复习信息</div>
+    <div id="wizardBody"></div>
+    <div style="display:flex;gap:10px;justify-content:space-between;margin-top:16px;">
+      <button class="btn-default" id="inputPrev">上一步</button>
+      <button class="btn-primary" id="inputNext">下一步</button>
+    </div>
+  </div>
+</div>
+
+<!-- 复盘弹窗 -->
+<div class="modal" id="reviewModal">
+  <div class="modal-inner">
+    <div class="title">📝 今日复盘</div>
+    <div class="subtitle">如实记录，明天的计划才能排得准。</div>
+    <div id="reviewBody"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn-default" id="reviewCancel">取消</button>
+      <button class="btn-primary" id="reviewSubmit">提交复盘并重排计划</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置抽屉 -->
+<div class="overlay" id="overlay"></div>
+<div class="setting-drawer" id="settingDrawer">
+  <div class="title">空间偏好设置</div>
+  <div class="subtitle">数据全部保存在你的本地浏览器中</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+    <button class="btn-default" id="exportJson">导出 JSON</button>
+    <button class="btn-default" id="importJson">导入 JSON</button>
+    <input type="file" id="importFile" accept=".json" style="display:none">
+  </div>
+  <button class="btn-default" style="color:#9E4758;background:#F6E6E8;width:100%;margin-bottom:14px;" id="clearAll">清空全部本地数据</button>
+  <hr style="margin:18px 0;border:none;border-top:1px solid var(--line);">
+  <div class="title" style="font-size:16px;">🐾 桌宠陪伴设置</div>
+  <label style="display:flex;align-items:center;gap:8px;font-size:14px;margin-bottom:12px;cursor:pointer;">
+    <input type="checkbox" id="petEnable"> 启用右下角学习伙伴
+  </label>
+  <div style="font-size:14px;margin-bottom:4px;">伙伴昵称：</div>
+  <input id="petName" placeholder="小伙伴">
+  <div class="subtitle" style="margin-top:8px;">自定义状态插画（待机 / 专注 / 庆祝）</div>
+  <div style="font-size:13px;color:var(--text2);">
+    <div>待机状态图<input type="file" class="petUpload" data-key="idle" accept="image/*"></div>
+    <div>专注状态图<input type="file" class="petUpload" data-key="focus" accept="image/*"></div>
+    <div>庆祝状态图<input type="file" class="petUpload" data-key="cele" accept="image/*"></div>
+  </div>
+</div>
+
+<!-- 桌宠 -->
+<div class="pet-wrap" id="petWrap">
+  <div class="pet-bubble" id="petBubble"></div>
+  <div class="pet" id="pet">
+    <svg viewBox="0 0 100 100" id="petSvg">
+      <g id="svgIdle">
+        <circle cx="50" cy="50" r="34" fill="#FDFBF7" stroke="#2C2927" stroke-width="2.2"/>
+        <circle cx="38" cy="44" r="3.2" fill="#2C2927"/>
+        <circle cx="62" cy="44" r="3.2" fill="#2C2927"/>
+        <path d="M41 61 Q50 69 59 61" fill="none" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="30" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
+        <circle cx="70" cy="53" r="4.5" fill="#E8B4BE" opacity="0.65"/>
+      </g>
+      <g id="svgFocus" style="display:none">
+        <circle cx="50" cy="50" r="34" fill="#C6D8F3" stroke="#2C2927" stroke-width="2.2"/>
+        <line x1="34" y1="43" x2="43" y2="47" stroke="#2C2927" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="66" y1="43" x2="57" y2="47" stroke="#2C2927" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M43 63 L57 63" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <g id="svgCele" style="display:none">
+        <circle cx="50" cy="50" r="34" fill="#EDE1E7" stroke="#2C2927" stroke-width="2.2"/>
+        <path d="M36 41 L42 45 M42 41 L36 45" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
+        <path d="M58 41 L64 45 M64 41 L58 45" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
+        <path d="M40 59 Q50 72 60 59" fill="none" stroke="#2C2927" stroke-width="2" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+  <div class="pet-timer" id="petTimer"></div>
+  <div class="pet-menu" id="petMenu">
+    <div id="petHide">暂时收起伙伴</div>
+    <div id="petSetting">打开陪伴设置</div>
+  </div>
+</div>
+
+<script>
+/* ============ 数据层 ============ */
+const SCHEMA_VERSION = 2;
+const DEFAULT_DATA = {
+  schemaVersion: SCHEMA_VERSION,
+  config: { dailyMinutes: 120, stageMode: "three" },
+  courses: [],
+  tasks: [],
+  reviews: [],
+  pomodoro: { presets: [25,45,10], history: [] },
+  pet: {
+    enable: true, name: "小伙伴", posX: 83, posY: 74,
+    img: { idle: null, focus: null, cele: null },
+    lastBubble: 0, lastClick: 0, hidden: false
+  }
+};
+let appData;
+try {
+  const raw = JSON.parse(localStorage.getItem("studyAppData"));
+  appData = raw && raw.courses ? { ...structuredClone(DEFAULT_DATA), ...raw } : structuredClone(DEFAULT_DATA);
+} catch {
+  appData = structuredClone(DEFAULT_DATA);
+}
+function saveData(){ localStorage.setItem("studyAppData", JSON.stringify(appData)); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/* ============ 视图切换 ============ */
+let currentView = "home";
+function switchView(v){
+  currentView = v;
+  document.querySelectorAll(".spa-view").forEach(el=>el.classList.remove("active"));
+  document.getElementById("view-"+v).classList.add("active");
+  if(v==="home") renderHome();
+  if(v==="plan") renderPlan();
+  if(v==="stats") renderStats();
+  if(v==="courses") renderCourses();
+}
+
+/* ============ IndexedDB ============ */
+const IDB_NAME="studyPetDB", IDB_STORE="petImages";
+let idb;
+function openIDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(IDB_NAME,1);
+    r.onupgradeneeded=e=>{e.target.result.createObjectStore(IDB_STORE,{keyPath:"key"});};
+    r.onsuccess=e=>{idb=e.target.result;res(idb);};
+    r.onerror=rej;
+  });
+}
+function setPetImg(key,b64){if(idb) idb.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).put({key,data:b64});}
+function getPetImg(key){
+  return new Promise(res=>{
+    if(!idb) return res(null);
+    const req=idb.transaction(IDB_STORE).objectStore(IDB_STORE).get(key);
+    req.onsuccess=()=>res(req.result?.data||null);
+    req.onerror=()=>res(null);
+  });
+}
+async function loadPetAllImg(){
+  appData.pet.img.idle=await getPetImg("idle");
+  appData.pet.img.focus=await getPetImg("focus");
+  appData.pet.img.cele=await getPetImg("cele");
+  renderPet();
+}
+
+/* ============ 桌宠 ============ */
+const petWrap=document.getElementById("petWrap"),petEl=document.getElementById("pet"),
+      petSvg=document.getElementById("petSvg"),svgIdle=document.getElementById("svgIdle"),
+      svgFocus=document.getElementById("svgFocus"),svgCele=document.getElementById("svgCele"),
+      petBubble=document.getElementById("petBubble"),petTimer=document.getElementById("petTimer"),
+      petMenu=document.getElementById("petMenu");
+const bubblePoolIdle=["慢慢来，一步一步来","认真就很棒啦","歇一下也没关系","喝口水，继续往前走"];
+const bubblePoolFocus=["安静陪你学习 ✨","专注当下就好"];
+const bubblePoolTired=["夜深啦，别熬太狠","已经学很久，伸个懒腰吧"];
+let petState="idle",celeTimeout=null;
+function triggerPetCelebrate(msg){
+  clearTimeout(celeTimeout);
+  setPetState("cele");
+  showBubble(msg||"太棒啦！给你放朵小红花 🎉");
+  celeTimeout=setTimeout(()=>setPetState(pomRunning?"focus":"idle"),4500);
+}
+function renderPet(){
+  const p=appData.pet;
+  document.getElementById("heroGreeting").textContent=`嗨，我是${p.name||"小伙伴"}，今天也一起慢慢学。`;
+  if(!p.enable||p.hidden){petWrap.style.display="none";return;}
+  petWrap.style.display="block";
+  petWrap.style.left=`${p.posX}%`;
+  petWrap.style.top=`${p.posY}%`;
+  let imgKey=petState==="focus"?"focus":petState==="cele"?"cele":"idle";
+  if(p.img[imgKey]){
+    petSvg.style.display="none";
+    petEl.style.backgroundImage=`url(${p.img[imgKey]})`;
+    petEl.style.backgroundSize="cover";
+  }else{
+    petSvg.style.display="block";
+    petEl.style.backgroundImage="none";
+    svgIdle.style.display="none";svgFocus.style.display="none";svgCele.style.display="none";
+    if(petState==="idle")svgIdle.style.display="block";
+    if(petState==="focus")svgFocus.style.display="block";
+    if(petState==="cele")svgCele.style.display="block";
+  }
+  petEl.className="pet";
+  if(petState==="idle")petEl.classList.add("pet-idle");
+  if(petState==="focus")petEl.classList.add("pet-focus");
+  if(petState==="cele")petEl.classList.add("pet-cele");
+}
+function setPetState(s){petState=s;renderPet();}
+function showBubble(t){
+  petBubble.textContent=t;petBubble.classList.add("show");
+  setTimeout(()=>petBubble.classList.remove("show"),4500);
+}
+function pickBubble(){
+  const hour=new Date().getHours();
+  const totalMin=appData.pomodoro.history.reduce((s,i)=>s+i.minutes,0);
+  let pool=bubblePoolIdle;
+  if(petState==="focus")pool=bubblePoolFocus;
+  else if(hour>=22||totalMin>=120)pool=bubblePoolTired;
+  showBubble(pool[Math.floor(Math.random()*pool.length)]);
+  appData.pet.lastBubble=Date.now();saveData();
+}
+let drag=false,dragSX,dragSY,startPX,startPY;
+petEl.addEventListener("mousedown",e=>{
+  drag=true;dragSX=e.clientX;dragSY=e.clientY;
+  const r=petWrap.getBoundingClientRect();
+  startPX=r.left/window.innerWidth*100;startPY=r.top/window.innerHeight*100;
+  petEl.classList.add("grabbing");e.preventDefault();
+});
+document.addEventListener("mousemove",e=>{
+  if(!drag)return;
+  const nx=startPX+(e.clientX-dragSX)/window.innerWidth*100;
+  const ny=startPY+(e.clientY-dragSY)/window.innerHeight*100;
+  appData.pet.posX=Math.max(0,Math.min(86,nx));
+  appData.pet.posY=Math.max(0,Math.min(84,ny));
+  petWrap.style.left=`${appData.pet.posX}%`;petWrap.style.top=`${appData.pet.posY}%`;
+});
+document.addEventListener("mouseup",()=>{if(drag){drag=false;petEl.classList.remove("grabbing");saveData();}});
+petEl.addEventListener("click",()=>{
+  const now=Date.now();
+  if(now-appData.pet.lastClick<2500)return;
+  appData.pet.lastClick=now;pickBubble();saveData();
+});
+petEl.addEventListener("contextmenu",e=>{
+  e.preventDefault();petMenu.classList.add("open");
+  petMenu.style.left=e.clientX+"px";petMenu.style.top=e.clientY+"px";
+});
+document.getElementById("petHide").onclick=()=>{appData.pet.hidden=true;saveData();renderPet();petMenu.classList.remove("open");};
+document.getElementById("petSetting").onclick=()=>{
+  petMenu.classList.remove("open");
+  document.getElementById("settingDrawer").classList.add("open");
+  document.getElementById("overlay").classList.add("open");
+};
+document.addEventListener("click",e=>{if(!petMenu.contains(e.target)&&e.target!==petEl)petMenu.classList.remove("open");});
+
+/* ============ 番茄钟 ============ */
+let pomRunning=false,pomSeconds=0,pomTimerId=null;
+const pomTimeEl=document.getElementById("pomTime"),pomHintEl=document.getElementById("pomHint"),
+      pomStartBtn=document.getElementById("pomStart"),pomResetBtn=document.getElementById("pomReset");
+function renderPom(){
+  const m=Math.floor(pomSeconds/60),s=pomSeconds%60;
+  const str=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
+  pomTimeEl.textContent=str;
+  petTimer.textContent=pomRunning?str:"";
+  pomStartBtn.textContent=pomRunning?"暂停并记录":"开始专注";
+  pomHintEl.textContent=pomRunning?"沉浸学习中...":(pomSeconds>0?"已暂停":"准备就绪");
+}
+pomStartBtn.onclick=()=>{
+  if(pomRunning){
+    clearInterval(pomTimerId);pomRunning=false;setPetState("idle");
+    if(pomSeconds>=60){
+      appData.pomodoro.history.push({minutes:Math.round(pomSeconds/60),endedAt:new Date().toISOString()});
+      saveData();
+      showBubble(`已记录 ${Math.round(pomSeconds/60)} 分钟专注 ✨`);
+    }
+    pomSeconds=0;renderPom();return;
+  }
+  pomRunning=true;setPetState("focus");showBubble(bubblePoolFocus[0]);renderPom();
+  pomTimerId=setInterval(()=>{pomSeconds++;renderPom();},1000);
+};
+pomResetBtn.onclick=()=>{clearInterval(pomTimerId);pomRunning=false;pomSeconds=0;setPetState("idle");renderPom();};
+
+/* ============ 优先级算法 ============ */
+function calcPriority(course){
+  const dScore=(Number(course.difficulty)||3)*20;
+  const mScore=100-(Number(course.mastery)||50);
+  const days=Math.max(1,Math.ceil((new Date(course.examDate)-new Date(todayStr()))/86400000));
+  const uScore=Math.min(100,100/days*12);
+  return Math.round(dScore*0.30+mScore*0.40+uScore*0.30);
+}
+function priorityLabel(score){
+  if(score>=70)return{level:"高",cls:"tag-high"};
+  if(score>=45)return{level:"中",cls:"tag-mid"};
+  return{level:"低",cls:"tag-low"};
+}
+
+/* ============ 计划生成 ============ */
+function generatePlan(){
+  const dailyCap=(appData.config.dailyMinutes||120)*0.85;
+  const mode=appData.config.stageMode||"three";
+  const today=new Date(todayStr());
+  let taskPool=[];
+  const totalCh=Math.max(1,appData.courses.reduce((s,cc)=>s+cc.chapters.length,0));
+  let counter=0;
+  appData.courses.forEach(c=>{
+    c.chapters.forEach(ch=>{
+      counter++;
+      const minutes=ch.estimatedMinutes||c.defaultChapterMinutes||60;
+      let stage="基础复习";
+      if(mode==="single")stage="均衡推进";
+      else if(mode==="two")stage=counter/totalCh>0.65?"考前冲刺":"系统复习";
+      else if(counter/totalCh>0.8)stage="模拟冲刺";
+      else if(counter/totalCh>0.5)stage="专项刷题";
+      const score=calcPriority(c)+(ch.isWeak?22:0);
+      taskPool.push({
+        id:uid(),courseId:c.id,chapterId:ch.id,
+        content:`${ch.name} · ${stage}`,estimatedMinutes:minutes,
+        priority:score,stage:stage,completed:false,completedAt:null,
+        courseName:c.name,chapterName:ch.name,isManual:false
+      });
+    });
+  });
+  taskPool.sort((a,b)=>b.priority-a.priority);
+  let days=[],dayCursor=new Date(today),poolIdx=0;
+  while(poolIdx<taskPool.length&&days.length<90){
+    const ds=dayCursor.toISOString().slice(0,10);
+    let dayTasks=[],used=0;
+    while(poolIdx<taskPool.length){
+      const t=taskPool[poolIdx];
+      if(used+t.estimatedMinutes>dailyCap&&dayTasks.length>0)break;
+      dayTasks.push(t);used+=t.estimatedMinutes;poolIdx++;
+    }
+    days.push({date:ds,tasks:dayTasks});
+    dayCursor=new Date(dayCursor.getTime()+86400000);
+  }
+  appData.tasks=days;saveData();
+}
+
+/* ============ 渲染：首页 ============ */
+function renderHome(){
+  const grid=document.getElementById("courseGrid"),emptyHint=document.getElementById("courseEmptyHint");
+  grid.innerHTML="";
+  if(appData.courses.length===0){emptyHint.style.display="block";}
+  else{
+    emptyHint.style.display="none";
+    appData.courses.forEach(c=>{
+      const days=Math.ceil((new Date(c.examDate)-new Date(todayStr()))/86400000);
+      const score=calcPriority(c);
+      const pl=priorityLabel(score);
+      const div=document.createElement("div");
+      div.className="course-mini-card";
+      div.innerHTML=`
+        <div style="font-weight:600;margin-bottom:4px;">${c.courseCode} ${c.name}</div>
+        <div class="subtitle">考试：${c.examDate} · ${days>=0?`剩 ${days} 天`:'已结束'}</div>
+        <span class="tag ${pl.cls}">权重 ${pl.level} (${score})</span>
+        <div class="subtitle" style="margin-top:6px;margin-bottom:0;">难度 ${c.difficulty}/5 · 掌握 ${c.mastery}%</div>`;
+      grid.appendChild(div);
+    });
+  }
+
+  const taskList=document.getElementById("taskList"),taskEmpty=document.getElementById("taskEmpty");
+  const todayPlan=appData.tasks.find(d=>d.date===todayStr());
+  if(!todayPlan||todayPlan.tasks.length===0){
+    taskList.innerHTML="";taskEmpty.style.display="block";
+  }else{
+    taskEmpty.style.display="none";
+    taskList.innerHTML="";
+    const sorted=[...todayPlan.tasks].sort((a,b)=>{
+      if(a.completed!==b.completed)return a.completed?1:-1;
+      return b.priority-a.priority;
+    });
+    sorted.forEach(t=>{
+      const course=appData.courses.find(c=>c.id===t.courseId);
+      const pl=priorityLabel(t.priority);
+      const badge=t.isManual?"随手记":(course?course.courseCode:"");
+      const div=document.createElement("div");
+      div.className="task-item"+(t.completed?" task-done":"");
+      div.innerHTML=`
+        <input type="checkbox" ${t.completed?"checked":""} data-tid="${t.id}">
+        <span style="flex:1;">[${badge}] ${t.chapterName} · ${t.estimatedMinutes}min</span>
+        <span class="tag ${pl.cls}">${pl.level}</span>`;
+      taskList.appendChild(div);
+    });
+    taskList.querySelectorAll("input").forEach(cb=>{
+      cb.onchange=()=>{
+        const tid=cb.dataset.tid;
+        const t=todayPlan.tasks.find(x=>x.id===tid);
+        if(t){
+          t.completed=cb.checked;
+          t.completedAt=cb.checked?new Date().toISOString():null;
+          saveData();renderHome();
+          if(todayPlan.tasks.length>0&&todayPlan.tasks.every(x=>x.completed)){
+            triggerPetCelebrate("今日手账全部划掉啦！🎉");
+          }
+        }
+      };
+    });
+  }
+
+  const weakWrap=document.getElementById("weakList");
+  const weakCh=appData.courses.flatMap(c=>c.chapters.filter(ch=>ch.isWeak).map(ch=>`• ${c.courseCode} · ${ch.name}`));
+  weakWrap.innerHTML=weakCh.length?weakCh.join("<br>"):"暂无标记的薄弱章节，保持节奏就好。";
+
+  const allTasks=appData.tasks.flatMap(d=>d.tasks);
+  const doneCount=allTasks.filter(t=>t.completed).length;
+  document.getElementById("totalProgress").textContent=`总进度：${allTasks.length?Math.round(doneCount/allTasks.length*100):0}%`;
+
+  // 迷你统计卡
+  const todayTasks=todayPlan?todayPlan.tasks:[];
+  const todayDone=todayTasks.filter(t=>t.completed).length;
+  const pct=todayTasks.length?Math.round(todayDone/todayTasks.length*100):0;
+  const todayPom=appData.pomodoro.history.filter(h=>h.endedAt.slice(0,10)===todayStr()).reduce((s,h)=>s+h.minutes,0);
+  document.getElementById("miniRing").style.setProperty("--pct",pct+"%");
+  document.getElementById("miniRingText").textContent=pct+"%";
+  document.getElementById("miniDoneNum").textContent=`${todayDone} / ${todayTasks.length}`;
+  document.getElementById("miniPomMin").textContent=todayPom+" 分钟";
+
+  const h=new Date().getHours();
+  const hasReview=appData.reviews.some(r=>r.date===todayStr());
+  document.getElementById("reviewBanner").style.display=(h>=18&&!hasReview)?"block":"none";
+}
+
+// 迷你统计卡点击跳统计页
+document.getElementById("miniStatsCard").onclick=()=>switchView("stats");
+
+/* ============ 渲染：计划总览 ============ */
+function renderPlan(){
+  const wrap=document.getElementById("planWrap");
+  if(!appData.tasks.length){
+    wrap.innerHTML='<div class="course-empty-hint">生成计划后，这里会展示从今天到最后一门考试的完整复习安排。</div>';
+    return;
+  }
+  let rows="";
+  appData.tasks.forEach(d=>{
+    d.tasks.forEach(t=>{
+      const course=appData.courses.find(c=>c.id===t.courseId);
+      const pl=priorityLabel(t.priority);
+      rows+=`<tr style="${t.completed?'opacity:0.5;text-decoration:line-through;':''}">
+        <td>${d.date}</td>
+        <td>${t.isManual?'随手记':(course?course.courseCode:'')}</td>
+        <td>${t.chapterName}</td>
+        <td>${t.stage}</td>
+        <td>${t.estimatedMinutes}min</td>
+        <td><span class="tag ${pl.cls}">${pl.level}</span></td>
+      </tr>`;
+    });
+  });
+  wrap.innerHTML=`<table class="plan-table"><thead><tr><th>日期</th><th>科目</th><th>章节</th><th>阶段</th><th>用时</th><th>优先级</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+/* ============ 渲染：统计页 ============ */
+let ringChart,stackChart;
+function renderStats(){
+  const ctxR=document.getElementById("chartRing").getContext("2d");
+  const ctxS=document.getElementById("chartStack").getContext("2d");
+  if(ringChart)ringChart.destroy();
+  if(stackChart)stackChart.destroy();
+  const todayPlan=appData.tasks.find(d=>d.date===todayStr());
+  const tasks=todayPlan?todayPlan.tasks:[];
+  const done=tasks.filter(t=>t.completed).length;
+  const undone=tasks.length-done;
+  const hasData=tasks.length>0;
+  ringChart=new Chart(ctxR,{
+    type:"doughnut",
+    data:{labels:hasData?["已完成","待完成"]:["暂无任务"],
+      datasets:[{data:hasData?[done,undone]:[1],
+        backgroundColor:hasData?["#7B9CC9","#EAE4DE"]:["#EAE4DE"],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"68%",
+      plugins:{title:{text:"今日任务完成度",display:true,color:"#2C2927",font:{size:14,weight:"600"}},
+        legend:{labels:{color:"#7A7470",boxWidth:12}}}}
+  });
+  const doneMin=tasks.filter(t=>t.completed).reduce((s,t)=>s+t.estimatedMinutes,0);
+  const totalMin=tasks.reduce((s,t)=>s+t.estimatedMinutes,0);
+  stackChart=new Chart(ctxS,{
+    type:"bar",
+    data:{labels:["今日计划时长 (分钟)"],
+      datasets:[
+        {label:"已完成",data:[doneMin],backgroundColor:"#C599AD",borderRadius:6},
+        {label:"待完成",data:[Math.max(0,totalMin-doneMin)],backgroundColor:"#EAE4DE",borderRadius:6}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{title:{text:"今日时间分布",display:true,color:"#2C2927",font:{size:14,weight:"600"}},
+        legend:{labels:{color:"#7A7470",boxWidth:12}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:"#7A7470"}},
+        y:{stacked:true,grid:{color:"rgba(44,41,39,0.05)"},ticks:{color:"#7A7470"}}}}
+  });
+  // 热力图
+  const heatGrid=document.getElementById("heatmapGrid");
+  heatGrid.innerHTML="";
+  for(let i=27;i>=0;i--){
+    const d=new Date(Date.now()-i*86400000);
+    const ds=todayStr.call(d);
+    const plan=appData.tasks.find(x=>x.date===ds);
+    const doneCnt=plan?plan.tasks.filter(t=>t.completed).length:0;
+    let cls="heat-cell";
+    if(doneCnt>=4)cls+=" heat-l4";
+    else if(doneCnt===3)cls+=" heat-l3";
+    else if(doneCnt===2)cls+=" heat-l2";
+    else if(doneCnt===1)cls+=" heat-l1";
+    const cell=document.createElement("div");
+    cell.className=cls;
+    cell.title=`${ds}：完成 ${doneCnt} 项`;
+    cell.innerHTML=`<span>${d.getDate()}</span><span style="font-size:10px;opacity:0.8;">${doneCnt?doneCnt+'项':''}</span>`;
+    heatGrid.appendChild(cell);
+  }
+}
+
+/* ============ 渲染：科目管理 ============ */
+function renderCourses(){
+  const wrap=document.getElementById("courseManageList");
+  if(!appData.courses.length){
+    wrap.innerHTML='<div class="card"><div class="course-empty-hint">还没有任何科目，点击「+ 新增科目」添加。</div></div>';
+    return;
+  }
+  wrap.innerHTML="";
+  appData.courses.forEach(c=>{
+    const card=document.createElement("div");
+    card.className="card";
+    const chHtml=c.chapters.map((ch,idx)=>`
+      <span class="tag ${ch.isWeak?'tag-high':''}" style="cursor:pointer;margin:3px;" onclick="toggleWeak('${c.id}',${idx})" title="点击切换薄弱">
+        ${ch.isWeak?'🔥 ':''}${ch.name} (${ch.estimatedMinutes}m)
+      </span>`).join("");
+    card.innerHTML=`
+      <div class="title">
+        <span>${c.courseCode} · ${c.name}</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-default" style="font-size:13px;padding:6px 12px;" onclick="openCourseEditor('${c.id}')">编辑</button>
+          <button class="btn-default" style="font-size:13px;padding:6px 12px;color:#9E4758;background:#F6E6E8;" onclick="deleteCourse('${c.id}')">删除</button>
+        </div>
+      </div>
+      <div class="subtitle">考试：${c.examDate} ｜ 难度 ${c.difficulty}/5 ｜ 掌握 ${c.mastery}%</div>
+      <div style="margin-top:8px;">${chHtml||'<span class="subtitle">暂无章节</span>'}</div>`;
+    wrap.appendChild(card);
+  });
+}
+window.toggleWeak=function(courseId,chIdx){
+  const c=appData.courses.find(x=>x.id===courseId);
+  if(!c||!c.chapters[chIdx])return;
+  c.chapters[chIdx].isWeak=!c.chapters[chIdx].isWeak;
+  saveData();renderCourses();
+};
+window.deleteCourse=function(courseId){
+  if(!confirm("确定删除这门科目及其排期任务吗？"))return;
+  appData.courses=appData.courses.filter(x=>x.id!==courseId);
+  generatePlan();renderCourses();
+};
+
+/* ============ 科目编辑弹窗（简化） ============ */
+let editingCourseId=null;
+document.getElementById("addCourseBtn").onclick=()=>openCourseEditor(null);
+window.openCourseEditor=function(courseId){
+  editingCourseId=courseId;
+  const c=courseId?appData.courses.find(x=>x.id===courseId):{courseCode:"",name:"",examDate:"",difficulty:3,mastery:50,defaultChapterMinutes:60,chapters:[]};
+  const title=courseId?"编辑科目":"新增科目";
+  const body=document.getElementById("wizardBody");
+  document.getElementById("wizardTitle").textContent=title;
+  document.getElementById("stepIndicator").innerHTML="";
+  document.getElementById("inputPrev").style.visibility="hidden";
+  body.innerHTML=`
+    <div class="form-row">
+      <div><div class="subtitle">课程编号</div><input id="ecCode" value="${c.courseCode}"></div>
+      <div><div class="subtitle">科目名</div><input id="ecName" value="${c.name}"></div>
+    </div>
+    <div class="form-row">
+      <div><div class="subtitle">考试日期</div><input type="date" id="ecDate" value="${c.examDate}"></div>
+      <div><div class="subtitle">难度(1-5)</div><input type="number" id="ecDiff" value="${c.difficulty}" min="1" max="5"></div>
+      <div><div class="subtitle">掌握(%)</div><input type="number" id="ecMast" value="${c.mastery}" min="0" max="100"></div>
+    </div>
+    <div class="subtitle" style="margin-top:6px;">章节列表（每行一章）</div>
+    <div id="ecChapters"></div>
+    <button class="btn-default" id="ecAddCh" style="margin-top:6px;">+ 加章节</button>`;
+  const chList=document.getElementById("ecChapters");
+  c.chapters.forEach((ch,i)=>{
+    const row=document.createElement("div");
+    row.className="chapter-row";
+    row.innerHTML=`<input value="${ch.name}" style="flex:1;" data-i="${i}">
+      <input type="number" value="${ch.estimatedMinutes}" style="width:70px;" data-i="${i}">
+      <button class="btn-default" style="padding:5px 10px;font-size:12px;">×</button>`;
+    chList.appendChild(row);
+  });
+  document.getElementById("ecAddCh").onclick=()=>{
+    const row=document.createElement("div");
+    row.className="chapter-row";
+    row.innerHTML=`<input placeholder="章节名" style="flex:1;"><input type="number" value="60" style="width:70px;"><button class="btn-default" style="padding:5px 10px;font-size:12px;">×</button>`;
+    chList.appendChild(row);
+  };
+  document.getElementById("inputNext").textContent="保存";
+  document.getElementById("inputNext").onclick=()=>{
+    const code=document.getElementById("ecCode").value.trim();
+    const name=document.getElementById("ecName").value.trim();
+    const date=document.getElementById("ecDate").value;
+    if(!code||!name||!date){alert("请完整填写");return;}
+    const chapters=[];
+    chList.querySelectorAll(".chapter-row").forEach(row=>{
+      const inp=row.querySelectorAll("input");
+      if(inp[0].value.trim())chapters.push({id:uid(),name:inp[0].value.trim(),estimatedMinutes:Number(inp[1].value)||60,isWeak:false});
+    });
+    const payload={id:editingCourseId||uid(),courseCode:code,name,examDate:date,
+      difficulty:Number(document.getElementById("ecDiff").value)||3,
+      mastery:Number(document.getElementById("ecMast").value)||50,
+      defaultChapterMinutes:60,chapters};
+    if(editingCourseId){
+      const idx=appData.courses.findIndex(x=>x.id===editingCourseId);
+      if(idx>-1)appData.courses[idx]=payload;
+    }else{
+      appData.courses.push(payload);
+    }
+    generatePlan();
+    document.getElementById("inputModal").classList.remove("open");
+    renderCourses();
+  };
+  document.getElementById("inputPrev").onclick=()=>document.getElementById("inputModal").classList.remove("open");
+  document.getElementById("inputModal").classList.add("open");
+};
+
+/* ============ 四步录入向导 ============ */
+let wizardStep=0;
+let wizardDraft={dailyMinutes:120,stageMode:"three",courses:[]};
+const WIZARD_STEPS=["基础设置","添加科目","录入章节","确认生成"];
+function openWizard(){
+  wizardStep=0;
+  wizardDraft={dailyMinutes:appData.config.dailyMinutes||120,stageMode:appData.config.stageMode||"three",courses:[]};
+  renderWizard();
+  document.getElementById("inputModal").classList.add("open");
+}
+function renderWizard(){
+  const ind=document.getElementById("stepIndicator");
+  ind.innerHTML="";
+  WIZARD_STEPS.forEach((_,i)=>{
+    const d=document.createElement("div");
+    d.className="step-dot"+(i===wizardStep?" active":i<wizardStep?" done":"");
+    ind.appendChild(d);
+  });
+  const body=document.getElementById("wizardBody");
+  const title=document.getElementById("wizardTitle");
+  document.getElementById("inputPrev").style.visibility=wizardStep===0?"hidden":"visible";
+  document.getElementById("inputNext").textContent=wizardStep===WIZARD_STEPS.length-1?"确认生成计划":"下一步";
+  if(wizardStep===0){
+    title.textContent="步骤 1/4 · 基础设置";
+    body.innerHTML=`
+      <div class="subtitle">每天实际可以用来复习的时间（分钟）</div>
+      <input type="number" id="wDaily" value="${wizardDraft.dailyMinutes}" min="15" max="720">
+      <div class="subtitle" style="margin-top:8px;">阶段分配模式</div>
+      <select id="wStageMode">
+        <option value="three" ${wizardDraft.stageMode==='three'?'selected':''}>三阶段（基础→专项→冲刺）</option>
+        <option value="two" ${wizardDraft.stageMode==='two'?'selected':''}>两段（系统复习→考前冲刺）</option>
+        <option value="single" ${wizardDraft.stageMode==='single'?'selected':''}>单段（按权重均衡推进）</option>
+      </select>`;
+  }else if(wizardStep===1){
+    title.textContent="步骤 2/4 · 添加科目";
+    body.innerHTML=`
+      <div class="form-row">
+        <div><div class="subtitle">课程编号</div><input id="wCode" placeholder="如 CS101"></div>
+        <div><div class="subtitle">科目名</div><input id="wName" placeholder="如 数据结构"></div>
+      </div>
+      <div class="form-row">
+        <div><div class="subtitle">考试日期</div><input type="date" id="wDate"></div>
+        <div><div class="subtitle">难度(1-5)</div><input type="number" id="wDifficulty" value="3" min="1" max="5"></div>
+      </div>
+      <div class="form-row">
+        <div><div class="subtitle">掌握度(0-100%)</div><input type="number" id="wMastery" value="50" min="0" max="100"></div>
+        <div><div class="subtitle">每章默认分钟</div><input type="number" id="wChapterMin" value="60" min="15" max="300"></div>
+      </div>
+      <button class="btn-default" id="wAddCourse" style="margin-top:4px;">+ 加入这门科目</button>
+      <div id="wCourseList" style="margin-top:12px;"></div>`;
+    document.getElementById("wAddCourse").onclick=()=>{
+      const code=document.getElementById("wCode").value.trim();
+      const name=document.getElementById("wName").value.trim();
+      const date=document.getElementById("wDate").value;
+      if(!code||!name||!date){alert("请填写完整");return;}
+      wizardDraft.courses.push({
+        id:uid(),courseCode:code,name,examDate:date,
+        difficulty:Number(document.getElementById("wDifficulty").value)||3,
+        mastery:Number(document.getElementById("wMastery").value)||50,
+        defaultChapterMinutes:Number(document.getElementById("wChapterMin").value)||60,
+        chapters:[{id:uid(),name:"第1章 核心概念",estimatedMinutes:Number(document.getElementById("wChapterMin").value)||60,isWeak:false}]
+      });
+      renderWizardCourseList();
+      ["wCode","wName","wDate"].forEach(id=>document.getElementById(id).value="");
+    };
+    renderWizardCourseList();
+  }else if(wizardStep===2){
+    title.textContent="步骤 3/4 · 录入章节清单";
+    if(wizardDraft.courses.length===0){
+      body.innerHTML='<div class="course-empty-hint">请先返回上一步添加至少一门科目。</div>';
+    }else{
+      let html="";
+      wizardDraft.courses.forEach((c,ci)=>{
+        html+=`<div style="margin-bottom:14px;"><div class="subtitle" style="font-weight:600;">${c.courseCode} ${c.name}</div>`;
+        c.chapters.forEach((ch,chIdx)=>{
+          html+=`<div class="chapter-row">
+            <input value="${ch.name}" data-ci="${ci}" data-ch="${chIdx}" class="wChName" style="flex:1;">
+            <input type="number" value="${ch.estimatedMinutes}" data-ci="${ci}" data-ch="${chIdx}" class="wChMin" style="width:76px;">
+            <button class="btn-default" style="padding:5px 10px;font-size:12px;" onclick="wizardDraft.courses[${ci}].chapters.splice(${chIdx},1);renderWizard();">×</button>
+          </div>`;
+        });
+        html+=`<button class="btn-default" style="padding:5px 10px;font-size:12px;" onclick="wizardDraft.courses[${ci}].chapters.push({id:uid(),name:'',estimatedMinutes:${c.defaultChapterMinutes},isWeak:false});renderWizard();">+ 加章节</button></div>`;
+      });
+      body.innerHTML=html;
+      body.querySelectorAll(".wChName").forEach(inp=>{
+        inp.oninput=()=>{wizardDraft.courses[inp.dataset.ci].chapters[inp.dataset.ch].name=inp.value;};
+      });
+      body.querySelectorAll(".wChMin").forEach(inp=>{
+        inp.oninput=()=>{wizardDraft.courses[inp.dataset.ci].chapters[inp.dataset.ch].estimatedMinutes=Number(inp.value)||60;};
+      });
+    }
+  }else if(wizardStep===3){
+    title.textContent="步骤 4/4 · 确认生成计划";
+    const modeMap={three:"三阶段",two:"两段",single:"单段"};
+    let html=`<div class="subtitle">每日 ${wizardDraft.dailyMinutes} 分钟 ｜ 策略：${modeMap[wizardDraft.stageMode]}</div>`;
+    wizardDraft.courses.forEach(c=>{
+      html+=`<div class="course-mini-card" style="margin-bottom:8px;">
+        <div style="font-weight:600;">${c.courseCode} ${c.name}</div>
+        <div class="subtitle" style="margin-bottom:0;">考试：${c.examDate} · ${c.chapters.length}章 · 难度${c.difficulty} · 掌握${c.mastery}%</div>
+      </div>`;
+    });
+    body.innerHTML=html;
+  }
+}
+function renderWizardCourseList(){
+  const el=document.getElementById("wCourseList");
+  if(!el)return;
+  el.innerHTML="";
+  wizardDraft.courses.forEach(c=>{
+    const div=document.createElement("div");
+    div.className="course-mini-card";
+    div.style.cssText="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;";
+    div.innerHTML=`<span>${c.courseCode} ${c.name} · ${c.examDate}</span>
+      <button class="btn-default" style="padding:4px 10px;font-size:12px;" onclick="wizardDraft.courses=wizardDraft.courses.filter(x=>x.id!=='${c.id}');renderWizardCourseList();">移除</button>`;
+    el.appendChild(div);
+  });
+}
+document.getElementById("gotoInput").onclick=openWizard;
+document.getElementById("inputNext").onclick=()=>{
+  if(wizardStep===0){
+    wizardDraft.dailyMinutes=Number(document.getElementById("wDaily").value)||120;
+    wizardDraft.stageMode=document.getElementById("wStageMode").value;
+  }
+  if(wizardStep===1&&wizardDraft.courses.length===0){alert("请先添加至少一门科目");return;}
+  if(wizardStep===2){
+    for(const c of wizardDraft.courses){
+      c.chapters=c.chapters.filter(ch=>ch.name.trim());
+      if(c.chapters.length===0){alert(`请为「${c.name}」至少保留一个章节`);return;}
+    }
+  }
+  if(wizardStep===3){
+    appData.config.dailyMinutes=wizardDraft.dailyMinutes;
+    appData.config.stageMode=wizardDraft.stageMode;
+    appData.courses=wizardDraft.courses;
+    generatePlan();
+    document.getElementById("inputModal").classList.remove("open");
+    switchView("home");
+    triggerPetCelebrate("专属复习计划生成好啦 ✨");
+    return;
+  }
+  wizardStep++;
+  renderWizard();
+};
+document.getElementById("inputPrev").onclick=()=>{if(wizardStep>0){wizardStep--;renderWizard();}};
+
+/* ============ 复盘 ============ */
+document.getElementById("reviewBanner").onclick=openReview;
+document.getElementById("reviewCancel").onclick=()=>document.getElementById("reviewModal").classList.remove("open");
+function openReview(){
+  const body=document.getElementById("reviewBody");
+  const todayPom=appData.pomodoro.history.filter(h=>h.endedAt.slice(0,10)===todayStr()).reduce((s,h)=>s+h.minutes,0);
+  body.innerHTML=`
+    <div class="subtitle">今日实际专注时长（分钟）</div>
+    <input type="number" id="rvMinutes" value="${todayPom}" min="0">
+    <div class="subtitle">明天可用复习时长（分钟）</div>
+    <input type="number" id="rvTomorrowMin" value="${appData.config.dailyMinutes||120}" min="15">
+    <div class="subtitle">勾选还不够熟练的薄弱章节</div>
+    <div class="review-weak-list" id="rvWeakList"></div>`;
+  const weakList=document.getElementById("rvWeakList");
+  appData.courses.forEach(c=>{
+    c.chapters.forEach(ch=>{
+      const lb=document.createElement("label");
+      lb.innerHTML=`<input type="checkbox" ${ch.isWeak?"checked":""} value="${c.id}|${ch.id}"> ${c.courseCode} · ${ch.name}`;
+      weakList.appendChild(lb);
+    });
+  });
+  document.getElementById("reviewModal").classList.add("open");
+}
+document.getElementById("reviewSubmit").onclick=()=>{
+  const minutes=Number(document.getElementById("rvMinutes").value)||0;
+  const tomorrowMin=Number(document.getElementById("rvTomorrowMin").value)||120;
+  const weakIds=[...document.querySelectorAll("#rvWeakList input:checked")].map(cb=>cb.value);
+  appData.reviews.push({date:todayStr(),actualMinutes:minutes,weakChapterIds:weakIds,tomorrowAvailableMinutes:tomorrowMin});
+  appData.courses.forEach(c=>c.chapters.forEach(ch=>ch.isWeak=false));
+  weakIds.forEach(v=>{
+    const[courseId,chapterId]=v.split("|");
+    const c=appData.courses.find(x=>x.id===courseId);
+    if(c){const ch=c.chapters.find(x=>x.id===chapterId);if(ch)ch.isWeak=true;}
+  });
+  const todayPlan=appData.tasks.find(d=>d.date===todayStr());
+  let newDays=todayPlan?[{date:todayStr(),tasks:todayPlan.tasks}]:[];
+  let pool=[];
+  if(todayPlan){todayPlan.tasks.filter(t=>!t.completed).forEach(t=>pool.push({...t,id:uid(),completed:false,completedAt:null}));}
+  appData.tasks.forEach(d=>{if(d.date===todayStr())return;d.tasks.forEach(t=>{if(!t.completed)pool.push({...t,id:uid(),completed:false,completedAt:null});});});
+  pool.sort((a,b)=>b.priority-a.priority);
+  const dailyCap=tomorrowMin*0.85;
+  let cursor=new Date(new Date(todayStr()).getTime()+86400000);
+  let idx=0,guard=0;
+  while(idx<pool.length&&guard<90){
+    const ds=cursor.toISOString().slice(0,10);
+    let dayTasks=[],used=0;
+    while(idx<pool.length){const t=pool[idx];if(used+t.estimatedMinutes>dailyCap&&dayTasks.length>0)break;dayTasks.push(t);used+=t.estimatedMinutes;idx++;}
+    newDays.push({date:ds,tasks:dayTasks});
+    cursor=new Date(cursor.getTime()+86400000);guard++;
+  }
+  appData.tasks=newDays;saveData();
+  document.getElementById("reviewModal").classList.remove("open");
+  switchView(currentView);
+  triggerPetCelebrate("复盘完成！明日计划已自动微调 ✨");
+};
+
+/* ============ 设置 ============ */
+document.getElementById("openSetting").onclick=()=>{
+  document.getElementById("settingDrawer").classList.add("open");
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("petEnable").checked=appData.pet.enable;
+  document.getElementById("petName").value=appData.pet.name;
+};
+document.getElementById("overlay").onclick=()=>{
+  document.getElementById("settingDrawer").classList.remove("open");
+  document.getElementById("overlay").classList.remove("open");
+};
+document.getElementById("petEnable").onchange=e=>{appData.pet.enable=e.target.checked;appData.pet.hidden=false;saveData();renderPet();};
+document.getElementById("petName").oninput=e=>{appData.pet.name=e.target.value.slice(0,20);saveData();renderPet();};
+document.getElementById("exportJson").onclick=()=>{
+  const copy=structuredClone(appData);delete copy.pet.img;
+  const blob=new Blob([JSON.stringify(copy,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="studyroom-backup.json";a.click();
+};
+document.getElementById("importJson").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(!d.courses){alert("文件格式不正确");return;}
+    appData={...structuredClone(DEFAULT_DATA),...d};
+    saveData();switchView(currentView);renderPet();
+    alert("导入成功！");
+  }catch{alert("文件读取失败");}
+};
+document.getElementById("clearAll").onclick=()=>{
+  const input=prompt('请输入"确认清空"以重置所有本地数据');
+  if(input==="确认清空"){
+    localStorage.removeItem("studyAppData");
+    if(idb)idb.transaction(IDB_STORE,"readwrite").objectStore(IDB_STORE).clear();
+    appData=structuredClone(DEFAULT_DATA);
+    saveData();switchView("home");renderPet();
+  }
+};
+document.querySelectorAll(".petUpload").forEach(el=>{
+  el.onchange=async e=>{
+    const key=el.dataset.key;const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{setPetImg(key,r.result);appData.pet.img[key]=r.result;renderPet();};
+    r.readAsDataURL(f);
+  };
+});
+
+/* ============ 启动 ============ */
+function startClock(){
+  const timeEl=document.getElementById("clockTime");
+  const dateEl=document.getElementById("clockDate");
+  function tick(){
+    const n=new Date();
+    const h=String(n.getHours()).padStart(2,"0");
+    const m=String(n.getMinutes()).padStart(2,"0");
+    const s=String(n.getSeconds()).padStart(2,"0");
+    timeEl.textContent=`${h}:${m}:${s}`;
+    dateEl.textContent=`${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日`;
+  }
+  tick();setInterval(tick,1000);
+  const now=new Date();
+  document.getElementById("todayDateText").textContent=`${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+}
+async function boot(){
+  try{await openIDB();await loadPetAllImg();}catch(e){console.warn("IDB skipped",e);}
+  startClock();
+  renderHome();renderPet();
+  setTimeout(()=>{
+    document.getElementById("splash").classList.add("hide");
+    if(!appData.courses||appData.courses.length===0){
+      setTimeout(()=>openWizard(),350);
+    }
+  },1800);
+  setInterval(()=>{
+    if(petState==="idle"&&Date.now()-appData.pet.lastBubble>25*60*1000&&document.visibilityState==="visible"){
+      pickBubble();
+    }
+  },30000);
+}
+boot();
+</script>
+</body>
+</html>
