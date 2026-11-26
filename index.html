@@ -39,6 +39,21 @@
       </div>
     </div>
 
+    <div class="welcome-note">
+      <span class="welcome-note-icon">☕</span>
+      <div>
+        <strong>今天也为自己留一点专注的时间</strong>
+        <p>不用一下子完成所有事，先做好眼前这一小步。</p>
+      </div>
+      <span class="welcome-note-flower">✿</span>
+    </div>
+
+    <div class="metric-grid" aria-label="今日学习概况">
+      <div class="metric-card"><span class="metric-icon">⏱</span><div><small>今日专注</small><strong id="todayFocusMetric">0 <i>分钟</i></strong><em id="focusEncouragement">每一分钟都算数</em></div></div>
+      <div class="metric-card"><span class="metric-icon">✓</span><div><small>任务完成</small><strong id="todayTaskMetric">0/0</strong><em id="taskEncouragement">从一件小事开始</em></div></div>
+      <div class="metric-card"><span class="metric-icon">🌱</span><div><small>连续学习</small><strong id="streakMetric">0 <i>天</i></strong><em>慢慢积累自己的节奏</em></div></div>
+    </div>
+
     <div class="section-title">
       <span>⏳ 课程与考试倒计时</span>
       <div class="section-right">
@@ -63,6 +78,7 @@
           <button class="btn-primary" id="pomStart" onclick="event.stopPropagation()">开始专注</button>
           <button class="btn-default" id="pomReset" onclick="event.stopPropagation()">重置</button>
         </div>
+        <p class="pom-helper">暂停不会丢失进度；结束后再保存本次专注。</p>
       </div>
 
       <div class="card">
@@ -71,10 +87,11 @@
           <button class="btn-link" id="btnQuickTask">+ 随手记</button>
         </div>
         <div class="quick-add" id="quickAddBox" style="display:none;">
-          <input type="text" id="taskInput" placeholder="任务内容" class="input">
-          <input type="number" id="taskMin" value="30" min="5" class="input input-min">
+          <input type="text" id="taskInput" placeholder="例如：复习传播学第三章" class="input" maxlength="100">
+          <input type="number" id="taskMin" value="30" min="1" max="1440" class="input input-min" aria-label="预计分钟">
           <button class="btn-primary btn-sm" id="btnAddTask">添加</button>
         </div>
+        <div class="task-progress-wrap"><div class="task-progress-meta"><span id="taskProgressLabel">今日进度 0%</span><span id="taskProgressCount">0/0 项</span></div><div class="task-progress-track"><div id="taskProgressFill"></div></div></div>
         <div class="task-list" id="taskList"></div>
       </div>
 
@@ -108,14 +125,25 @@
   </section>
 
   <section class="view" id="view-stats">
-    <div class="section-title"><span>📈 近7天专注趋势</span></div>
-    <div class="card">
-      <div style="height:260px;"><canvas id="chartTrend"></canvas></div>
+    <div class="stats-intro">
+      <span>🌷</span><p>学习不是每天都要满格。这里记录的是你真实投入过的时间，哪怕今天只有十分钟，也值得被看见。</p>
+    </div>
+    <div class="stats-metric-grid">
+      <div class="stats-metric"><small>近 7 天专注</small><strong id="weekFocusMetric">0 分钟</strong></div>
+      <div class="stats-metric"><small>日均专注</small><strong id="dailyAverageMetric">0 分钟</strong></div>
+      <div class="stats-metric"><small>本月打卡</small><strong id="monthCheckinMetric">0 天</strong></div>
+    </div>
+    <div class="section-title"><span>📈 近7天专注趋势</span><span class="section-hint">每天一点点，都会累积</span></div>
+    <div class="card chart-card">
+      <div class="chart-heading"><div><strong>专注时间变化</strong><p>按天统计已完成并保存的专注时长</p></div><span class="chart-unit">分钟</span></div>
+      <div class="trend-chart-wrap"><canvas id="chartTrend" aria-label="近七天专注趋势图"></canvas></div>
+      <div id="trendEmpty" class="chart-empty" hidden>还没有专注记录。完成一次专注后，这里就会出现你的学习轨迹。</div>
     </div>
     
-    <div class="section-title"><span>🔥 近28天学习足迹</span></div>
+    <div class="section-title"><span>🔥 近28天学习足迹</span><span class="section-hint">每一个小格，都是认真生活的痕迹</span></div>
     <div class="card">
       <div class="heatmap" id="heatmap"></div>
+      <div class="heatmap-legend"><span>少</span><i class="heat-legend-1"></i><i class="heat-legend-2"></i><i class="heat-legend-3"></i><span>多</span></div>
     </div>
 
     <div class="section-title"><span>🗓 日历打卡</span></div>
