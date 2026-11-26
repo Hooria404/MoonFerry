@@ -483,17 +483,16 @@ function syncFocusElapsed(now = Date.now()) {
 }
 
 
-// 1. 开始 / 继续专注
+// 1
+
 function startTimer() {
   const p = appData.pomodoro;
-
   if (p.running) return;
 
   if (p.mode === 'countdown' && p.current <= 0) {
     p.current = p.target;
   }
 
-  // 只有第一次开始时才记录开始时间
   if (!p.sessionStartedAt) {
     p.sessionStartedAt = new Date().toISOString();
   }
@@ -504,52 +503,47 @@ function startTimer() {
   save();
   stopFocusIntervals();
 
-  // 小球动画：独立运行，每 5 秒生成一颗
+  // 开始后立即生成第一颗，之后每5秒生成一颗
+  createFallingBall();
+
   ballInterval = setInterval(() => {
-    if (
-      p.running &&
-      document.getElementById('timerOverlay')?.classList.contains('show')
-    ) {
+    if (p.running) {
       createFallingBall();
     }
   }, 5000);
 
-  // 专注计时：与小球动画完全分开
-  
-timerInterval = setInterval(() => {
-  if (!p.running) return;
+  // 独立计时
+  timerInterval = setInterval(() => {
+    if (!p.running) return;
 
-  const elapsed = syncFocusElapsed();
+    const elapsed = syncFocusElapsed();
 
-  // 只更新数字，不重新渲染整个界面
-  if (elapsed > 0) {
-    updatePomodoroDigits();
-    save();
-  }
+    if (elapsed > 0) {
+      updatePomodoroDigits();
+      save();
+    }
 
-  // 倒计时结束
-  if (p.mode === 'countdown' && p.current <= 0) {
-    p.current = 0;
-    p.running = false;
-    p.lastTick = null;
+    if (p.mode === 'countdown' && p.current <= 0) {
+      p.current = 0;
+      p.running = false;
+      p.lastTick = null;
 
-    stopFocusIntervals();
+      stopFocusIntervals();
+      saveFocusSession('completed');
 
-    saveFocusSession('completed');
+      p.current = p.target;
 
-    p.current = p.target;
+      save();
+      renderPomodoro();
+      renderCharts();
 
-    save();
-    renderPomodoro();
-    renderCharts();
-
-    alert('本次专注已完成。');
-  }
-}, 250);
-
+      alert('本次专注已完成。');
+    }
+  }, 250);
 
   renderPomodoro();
 }
+
 
 
 // 2. 暂停：只暂停，不清零
@@ -692,44 +686,72 @@ function renderFocusHistory() {
 
 
  
+
 function createFallingBall() {
   const container = document.getElementById('ballsBg');
-  const overlay = document.getElementById('timerOverlay');
 
-  if (!container || !overlay || !overlay.classList.contains('show')) {
+  if (!container) {
+    console.error('找不到小球容器 #ballsBg');
     return;
   }
 
   const ball = document.createElement('span');
 
-  ball.className = 'fall-ball';
-
-  // 随机大小
-  const size = Math.round(Math.random() * 10 + 10);
-
-  // 随机下落速度
-  const duration = (Math.random() * 2.5 + 5.5).toFixed(2);
-
-  // 随机横向位置
+  const size = Math.floor(Math.random() * 12) + 10;
   const left = Math.random() * 94 + 3;
+  const drift = Math.floor(Math.random() * 100) - 50;
+  const duration = Math.random() * 2500 + 5500;
 
-  // 随机轻微横向漂移
-  const drift = Math.round(Math.random() * 70 - 35);
-
-  ball.style.width = size + 'px';
-  ball.style.height = size + 'px';
-  ball.style.left = left + 'vw';
-
-  ball.style.setProperty('--fall-drift', drift + 'px');
-  ball.style.animationDuration = duration + 's';
+  // 直接设置样式，不依赖原有 .fall-ball 动画规则
+  Object.assign(ball.style, {
+    position: 'absolute',
+    display: 'block',
+    top: '-24px',
+    left: left + '%',
+    width: size + 'px',
+    height: size + 'px',
+    borderRadius: '50%',
+    background: 'radial-gradient(circle at 32% 28%, #fff5ef 0%, #d9a18e 55%, #c88b75 100%)',
+    boxShadow: '0 3px 16px rgba(200,139,117,.22)',
+    opacity: '0.8',
+    pointerEvents: 'none',
+    zIndex: '1'
+  });
 
   container.appendChild(ball);
 
-  // 动画结束后清理元素
-  window.setTimeout(() => {
-    ball.remove();
-  }, Number(duration) * 1000 + 500);
+  // 使用浏览器原生动画接口
+  if (typeof ball.animate === 'function') {
+    const animation = ball.animate(
+      [
+        {
+          transform: 'translate3d(0, 0, 0)',
+          opacity: 0
+        },
+        {
+          transform: 'translate3d(0, 12vh, 0)',
+          opacity: 0.78,
+          offset: 0.12
+        },
+        {
+          transform: `translate3d(${drift}px, 110vh, 0)`,
+          opacity: 0
+        }
+      ],
+      {
+        duration: duration,
+        easing: 'linear',
+        fill: 'forwards'
+      }
+    );
+
+    animation.onfinish = () => ball.remove();
+  } else {
+    ball.style.animation = `studyroomBallFall ${duration}ms linear forwards`;
+    setTimeout(() => ball.remove(), duration + 500);
+  }
 }
+
 
 
 // ========== 图表 ==========

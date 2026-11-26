@@ -890,3 +890,31 @@ button { -webkit-tap-highlight-color: transparent; }
 #timerOverlay .timer-support-text {
   display: none !important;
 }
+
+/* 全屏专注小球：最终显示层 */
+#timerOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  overflow: hidden !important;
+  isolation: isolate;
+}
+
+#timerOverlay #ballsBg {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  z-index: 1 !important;
+  pointer-events: none !important;
+}
+
+#timerOverlay .timer-container {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* 小球在文字和按钮后面，但在页面底色上面 */
+#timerOverlay #ballsBg span {
+  pointer-events: none !important;
+}
