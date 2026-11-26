@@ -417,14 +417,10 @@ function renderPomodoro() {
   });
 
   const finishBtn = document.getElementById('timerFinishBtn');
-
-  // 结束按钮始终可以点击，不再被错误禁用
   if (finishBtn) {
     finishBtn.disabled = false;
     finishBtn.textContent = '结束本次专注';
   }
-
-  // ❌ 这里之前多了一个括号，导致整个JS崩溃，现已删除
 
   const resetBtn = document.getElementById('timerResetBtn');
   if (resetBtn) {
@@ -443,12 +439,16 @@ function renderPomodoro() {
 
 // ========== 专注计时控制 ==========
 
-// ✅ 修复死循环问题
+// ✅ 彻底修复：清除定时器（绝不自己调用自己！）
 function stopFocusIntervals() {
-  if (timerInterval) clearInterval(timerInterval);
-  if (ballInterval) clearInterval(ballInterval);
-  timerInterval = null;
-  ballInterval = null;
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  if (ballInterval) {
+    clearInterval(ballInterval);
+    ballInterval = null;
+  }
 }
 
 function syncFocusElapsed(now = Date.now()) {
@@ -491,10 +491,10 @@ function startTimer() {
   stopFocusIntervals();
   save();
 
-  // 开始后立即出现第一颗小球（原样保留）
+  // 开始后立即出现第一颗小球
   createFallingBall();
 
-  // 此后每隔5秒生成一颗（原样保留）
+  // 此后每隔5秒生成一颗
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
       createFallingBall();
@@ -665,7 +665,6 @@ function renderFocusHistory() {
     return `<div class="focus-history-item"><span class="focus-history-dot"></span><div class="focus-history-main"><strong>${dateText} · ${timeText}</strong><small>${statusText}</small></div><b>${durationText}</b></div>`;
   }).join('');
 }
-
 
 // ========== 【小球部分代码原封不动保留】 ==========
 function createFallingBall() {
@@ -1155,7 +1154,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (appData.pomodoro.running) pauseTimer(); else startTimer();
   };
   
-  // ✅ 确保“结束本次专注”按钮绑定成功
   document.getElementById('timerFinishBtn').onclick = finishTimer;
   document.getElementById('timerResetBtn').onclick = resetTimer;
   
