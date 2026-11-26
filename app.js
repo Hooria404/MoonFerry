@@ -425,8 +425,12 @@ function renderPomodoro() {
   });
 
   const finishBtn = document.getElementById('timerFinishBtn');
+
+  // 结束按钮始终可以点击，不再被错误禁用
   if (finishBtn) {
-    finishBtn.disabled = (p.sessionSeconds || 0) <= 0;
+    finishBtn.disabled = false;
+    finishBtn.textContent = '结束本次专注';
+  }
   }
 
   const resetBtn = document.getElementById('timerResetBtn');
@@ -572,35 +576,44 @@ function pauseTimer() {
 
 
 // 3. 结束本次专注：保存历史记录
+
 function finishTimer() {
   const p = appData.pomodoro;
 
-  // 如果还在运行，先补齐时间
+  // 如果正在计时，先补齐已经过的时间
   if (p.running) {
     syncFocusElapsed();
   }
 
-  if ((Number(p.sessionSeconds) || 0) <= 0) {
-    alert('这次专注还没有开始计时哦。');
-    return;
-  }
-
+  // 停止计时和小球生成
   p.running = false;
   p.lastTick = null;
-
   stopFocusIntervals();
 
-  // 保存本次专注记录
-  saveFocusSession('finished');
+  const seconds = Number(p.sessionSeconds) || 0;
 
-  // 结束后才恢复初始显示
+  // 有实际专注时间才保存历史
+  if (seconds > 0) {
+    saveFocusSession('finished');
+  } else {
+    p.sessionSeconds = 0;
+    p.sessionStartedAt = null;
+  }
+
+  // 结束后恢复初始时间
   p.current = p.mode === 'countdown' ? p.target : 0;
 
   save();
   renderPomodoro();
+  renderCharts();
 
-  alert('本次专注已结束，记录已保存。辛苦啦！');
+  alert(
+    seconds > 0
+      ? '本次专注已结束，记录已保存。辛苦啦！'
+      : '本次专注已结束，还没有产生有效专注记录。'
+  );
 }
+
 
 
 // 4. 重置：清空当前进度，不保存历史
