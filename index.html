@@ -2,154 +2,184 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>StudyRoom · 自习手账</title>
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 </head>
 <body>
-<!-- 导航栏 -->
-<nav class="nav-bar">
-  <button class="nav-tab active" data-view="home">今日首页</button>
-  <button class="nav-tab" data-view="plan">计划总览</button>
-  <button class="nav-tab" data-view="stats">数据统计</button>
-  <button class="nav-tab" data-view="course">科目管理</button>
-  <button class="nav-tab" data-view="calendar">日历打卡</button>
-  <div class="nav-right">
-    <button id="openReviewBtn">复盘小结</button>
-    <button id="openSetting">偏好设置 ⚙</button>
+
+<!-- 顶部导航 -->
+<nav class="navbar">
+  <div class="nav-brand">📒 StudyRoom</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-view="home">今日首页</button>
+    <button class="nav-tab" data-view="plan">计划总览</button>
+    <button class="nav-tab" data-view="stats">数据统计</button>
+    <button class="nav-tab" data-view="courses">科目管理</button>
+  </div>
+  <div class="nav-actions">
+    <button class="btn-pill" id="btnReview">复盘小结</button>
+    <button class="btn-pill" id="btnSettings">⚙ 设置</button>
   </div>
 </nav>
 
-<!-- 首页 view-home -->
-<div class="view" id="view-home">
-  <div class="container">
-    <div class="clock-wrap">
-      <div id="liveClockTime"></div>
-      <div id="liveClockDate"></div>
-    </div>
-    <div id="totalProgress"></div>
+<main class="main-content">
 
-    <!-- 图表区域 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0;">
-      <div style="height:240px">
-        <canvas id="homeChartRing"></canvas>
+  <!-- ========== 今日首页 ========== -->
+  <section class="view active" id="view-home">
+    <div class="hero-card">
+      <div class="hero-left">
+        <div class="hero-greeting" id="greetingText">🌙 夜色渐深，慢慢学</div>
+        <div class="hero-sub">SLOW & STEADY · 纯本地自习手账</div>
       </div>
-      <div style="height:240px">
-        <canvas id="homeChartStack"></canvas>
+      <div class="hero-clock">
+        <div class="clock-time" id="clockTime">--:--</div>
+        <div class="clock-date" id="clockDate">加载中...</div>
       </div>
     </div>
 
-    <div class="card">
-      <h3>番茄专注</h3>
-      <div id="pomTime">25:00</div>
-      <div id="pomHint"></div>
-      <div class="btn-row">
-        <button id="pomStart">开始专注</button>
-        <button id="pomReset">重置</button>
+    <div class="section-title">
+      <span>⏳ 课程与考试倒计时</span>
+      <div class="section-right">
+        <span class="progress-text" id="totalProgress">总进度 0%</span>
+        <button class="btn-primary btn-sm" id="btnAddCourseHome">+ 加科目</button>
       </div>
+    </div>
+    <div class="card">
+      <div class="course-grid" id="courseGrid"></div>
     </div>
 
-    <div class="card">
-      <div class="flex-row">
-        <h3>今日任务</h3>
-        <button id="toggleQuickTask">新增任务</button>
+    <div class="section-title"><span>⏱ 今日状态与专注</span></div>
+    <div class="three-col">
+      <!-- ✅ 注意这里：直接加上 onclick 属性，彻底避免 JS 绑定失效 -->
+      <div class="card card-pom" id="homePomCard" onclick="openTimerOverlay()">
+        <div class="card-title">专注时钟 <span style="font-size:12px;color:var(--text-light);float:right;">点击全屏 ↗</span></div>
+        <div class="pom-display">
+          <div class="pom-time" id="pomTime">25:00</div>
+          <div class="pom-status" id="pomStatus">准备就绪</div>
+        </div>
+        <div class="pom-btns">
+          <button class="btn-primary" id="pomStart" onclick="event.stopPropagation()">开始专注</button>
+          <button class="btn-default" id="pomReset" onclick="event.stopPropagation()">重置</button>
+        </div>
       </div>
-      <div id="quickTaskBox" style="display:none;gap:8px;margin:8px 0;flex-wrap:wrap;">
-        <input type="text" id="quickTaskTitle" placeholder="任务名称">
-        <input type="number" id="quickTaskMin" placeholder="预估分钟" value="30">
-        <button id="addQuickTaskBtn">添加</button>
-      </div>
-      <div id="taskList"></div>
-      <div id="taskEmpty" style="color:#888;display:none;">暂无任务</div>
-    </div>
 
-    <div class="card">
-      <div class="flex-row">
-        <h3>待考科目</h3>
-        <button id="quickAddCourseFromHome">添加科目</button>
+      <div class="card">
+        <div class="card-title-row">
+          <span>📝 今日手账清单</span>
+          <button class="btn-link" id="btnQuickTask">+ 随手记</button>
+        </div>
+        <div class="quick-add" id="quickAddBox" style="display:none;">
+          <input type="text" id="taskInput" placeholder="任务内容" class="input">
+          <input type="number" id="taskMin" value="30" min="5" class="input input-min">
+          <button class="btn-primary btn-sm" id="btnAddTask">添加</button>
+        </div>
+        <div class="task-list" id="taskList"></div>
       </div>
-      <div id="courseGrid"></div>
-      <div id="courseEmptyHint" style="color:#888;display:none;">暂未启用科目</div>
-    </div>
-  </div>
-</div>
 
-<!-- 计划总览 -->
-<div class="view" id="view-plan" style="display:none;">
-  <div class="container">
-    <div class="card">
-      <h3>整体计划</h3>
-      <p>可以在这里自由安排复习顺序</p>
-    </div>
-  </div>
-</div>
-
-<!-- 数据统计 -->
-<div class="view" id="view-stats" style="display:none;">
-  <div class="container">
-    <div class="card">
-      <h3>28天打卡热力图</h3>
-      <div id="heatmapGrid" style="display:grid;grid-template-columns:repeat(14,1fr);gap:4px;"></div>
-    </div>
-    <div class="card">
-      <div class="flex-row">
-        <h3>7天专注趋势</h3>
-        <button id="toggleTrendBtn">展开/收起</button>
-      </div>
-      <div id="trendCardBody">
-        <div style="height:280px;margin:16px 0;">
-          <canvas id="chartTrend"></canvas>
+      <div class="card">
+        <div class="card-title">💡 今日复习建议比例</div>
+        <div id="reviewAdviceList" style="margin-top: 12px;"></div>
+        <div class="weak-tip" style="margin-top: 16px;">
+          💡 比例依据距离考试天数动态计算，越近占比越高。
         </div>
       </div>
     </div>
-    <div class="card" id="homeStatsCard">
-      <p>点击返回首页</p>
-    </div>
-  </div>
-</div>
 
-<!-- 科目管理 -->
-<div class="view" id="view-course" style="display:none;">
-  <div class="container">
-    <div class="flex-row">
-      <h3>科目列表</h3>
-      <button id="addCourseFromCourses">新增科目</button>
+    <div class="section-title">
+      <span>📊 今日学习速览</span>
+      <button class="btn-link" id="gotoStats">查看完整统计 →</button>
     </div>
-    <div id="courseGrid"></div>
-  </div>
-</div>
-
-<!-- 日历打卡 -->
-<div class="view" id="view-calendar" style="display:none;">
-  <div class="container">
-    <div class="card">
-      <div class="flex-row">
-        <button id="calPrev">←</button>
-        <h3 id="calTitle"></h3>
-        <button id="calNext">→</button>
+    <div class="card card-click" id="homeStatsCard">
+      <div class="chart-row">
+        <div class="chart-box"><canvas id="chartRing"></canvas></div>
+        <div class="chart-box"><canvas id="chartBar"></canvas></div>
       </div>
-      <div id="calSummary"></div>
-      <div id="calGrid" class="calendar-grid"></div>
     </div>
-  </div>
-</div>
+  </section>
 
-<!-- 弹窗容器 -->
-<div id="modalContainer" class="modal">
+  <section class="view" id="view-plan">
+    <div class="section-title"><span>📋 完整复习计划</span></div>
+    <div class="card">
+      <p style="color:var(--text-light); font-size: 14px;">此处汇总了目前启用的科目概要，按考试日期升序排列。</p>
+      <div id="planList" style="margin-top:16px;"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-stats">
+    <div class="section-title"><span>📈 近7天专注趋势</span></div>
+    <div class="card">
+      <div style="height:260px;"><canvas id="chartTrend"></canvas></div>
+    </div>
+    
+    <div class="section-title"><span>🔥 近28天学习足迹</span></div>
+    <div class="card">
+      <div class="heatmap" id="heatmap"></div>
+    </div>
+
+    <div class="section-title"><span>🗓 日历打卡</span></div>
+    <div class="card">
+      <div class="cal-header">
+        <button class="btn-round" id="calPrev">‹</button>
+        <h3 id="calTitle">2026年 11月</h3>
+        <button class="btn-round" id="calNext">›</button>
+      </div>
+      <div class="cal-week">
+        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-summary" id="calSummary"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-courses">
+    <div class="section-title">
+      <span>📚 科目与考试管理</span>
+      <button class="btn-primary btn-sm" id="btnAddCourseManage">+ 新增科目</button>
+    </div>
+    <div class="card">
+      <div id="courseManageList"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modalOverlay">
   <div class="modal-box">
     <div class="modal-head">
-      <h4 id="modalTitle"></h4>
-      <button id="modalClose">×</button>
+      <h3 id="modalTitle">标题</h3>
+      <button class="modal-close" id="modalClose">×</button>
     </div>
-    <div id="modalBody"></div>
+    <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
 
-<!-- 桌宠挂件 -->
-<div id="petContainer" class="pet">
-  <img id="petImg">
-  <div id="petTimer"></div>
+<!-- 桌宠 -->
+<div class="pet-widget" id="petWidget">
+  <img id="petImg" alt="pet" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=">
+  <div class="pet-clock" id="petClock"></div>
+</div>
+
+<!-- 全屏沉浸式专注界面 -->
+<div class="timer-overlay" id="timerOverlay">
+  <div class="timer-container">
+    <div class="timer-mode-tabs">
+      <button class="timer-mode-tab active" data-mode="countdown">倒计时</button>
+      <button class="timer-mode-tab" data-mode="countup">正计时</button>
+    </div>
+    
+    <div class="timer-big-time" id="timerBigTime">25:00</div>
+    
+    <div class="timer-controls">
+      <button class="btn-round" id="timerMinus" style="width:48px;height:48px;font-size:24px;">-</button>
+      <button class="btn-primary" id="timerToggleBtn" style="width:120px;height:48px;font-size:16px;border-radius:24px;">开始专注</button>
+      <button class="btn-round" id="timerPlus" style="width:48px;height:48px;font-size:24px;">+</button>
+    </div>
+    
+    <button class="btn-link" id="timerCloseBtn" style="margin-top:50px;font-size:15px;color:var(--text-light);">↓ 退出专注模式</button>
+  </div>
 </div>
 
 <script src="app.js"></script>
