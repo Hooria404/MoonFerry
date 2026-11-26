@@ -55,6 +55,13 @@ let currentView = "home";
 let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
 let pomTimer = null;
+// Chart实例缓存
+let chartRing = null;
+let chartStack = null;
+let chartTrend = null;
+const chartColorPrimary = "#c88b75";
+const chartColorLight = "#e9c9bc";
+const chartColorText = "#4b3c32";
 
 // Storage
 function save(){localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));}
@@ -71,7 +78,11 @@ function switchView(viewName){
   document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
   document.querySelector(`[data-view="${viewName}"]`).classList.add("active");
   if(viewName==="calendar") renderCalendar();
-  if(viewName==="stats") renderHeatmap();
+  if(viewName==="stats") {
+    renderHeatmap();
+    renderTrendChart();
+  }
+  if(viewName==="home") renderHomeCharts();
 }
 
 // Clock
@@ -115,7 +126,7 @@ function renderCourses(){
     cb.onchange = ()=>{
       const c = appData.courses.find(x=>x.id===cb.dataset.id);
       if(c) c.enabled = cb.checked;
-      save();renderCourses();updateProgress();
+      save();renderCourses();updateProgress();renderHomeCharts();
     }
   })
   document.querySelectorAll(".course-item").forEach(el=>{
@@ -161,7 +172,7 @@ function startPomodoro(){
       appData.pomodoro.running = false;
       clearInterval(pomTimer);
     }
-    save();renderPomodoro();
+    save();renderPomodoro();renderHomeCharts();
   },1000);
   renderPomodoro();
 }
@@ -169,7 +180,7 @@ function resetPomodoro(){
   clearInterval(pomTimer);
   appData.pomodoro.running = false;
   appData.pomodoro.left = appData.pomodoro.total;
-  save();renderPomodoro();
+  save();renderPomodoro();renderHomeCharts();
 }
 
 // Task
@@ -188,7 +199,7 @@ function renderTask(){
   document.querySelectorAll(".task-item input").forEach(cb=>{
     cb.onchange = ()=>{
       appData.tasks[cb.dataset.idx].done = cb.checked;
-      save();renderTask();
+      save();renderTask();renderHomeCharts();
     }
   })
 }
@@ -198,7 +209,92 @@ function addQuickTask(){
   if(!title) return;
   appData.tasks.push({title,min,done:false});
   document.getElementById("quickTaskTitle").value="";
-  save();renderTask();
+  save();renderTask();renderHomeCharts();
+}
+
+// Chart 首页环形+堆叠图
+function renderHomeCharts(){
+  const doneTask = appData.tasks.filter(t=>t.done).length;
+  const totalTask = appData.tasks.length;
+  const pomMinutes = Math.floor((appData.pomodoro.total - appData.pomodoro.left)/60);
+  const restMinutes = Math.floor(appData.pomodoro.left /60);
+
+  // 环形图：任务完成率
+  if(chartRing) chartRing.destroy();
+  const ctxRing = document.getElementById("homeChartRing").getContext("2d");
+  chartRing = new Chart(ctxRing,{
+    type:"doughnut",
+    data:{
+      labels:["已完成任务","未完成任务"],
+      datasets:[{
+        data:[doneTask, totalTask - doneTask],
+        backgroundColor:[chartColorPrimary, chartColorLight],
+        borderWidth:0
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        title:{display:true,text:"今日任务完成率",color:chartColorText},
+        legend:{labels:{color:chartColorText}}
+      }
+    }
+  })
+
+  // 堆叠条形：专注时长
+  if(chartStack) chartStack.destroy();
+  const ctxStack = document.getElementById("homeChartStack").getContext("2d");
+  chartStack = new Chart(ctxStack,{
+    type:"bar",
+    data:{
+      labels:["专注计时"],
+      datasets:[
+        {label:"已专注",data:[pomMinutes],backgroundColor:chartColorPrimary},
+        {label:"剩余计时",data:[restMinutes],backgroundColor:chartColorLight}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{title:{display:true,text:"番茄钟时长(分钟)",color:chartColorText},legend:{labels:{color:chartColorText}}},
+      scales:{x:{stacked:true},y:{stacked:true,grid:{color:"rgba(200,170,150,0.2)"}}}
+    }
+  })
+}
+
+// 趋势图（统计页7天趋势）
+function renderTrendChart(){
+  if(chartTrend) chartTrend.destroy();
+  const labels = [];
+  const dataVal = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date();
+    d.setDate(d.getDate()-i);
+    const k = d.toISOString().slice(0,10);
+    labels.push(`${d.getMonth()+1}/${d.getDate()}`);
+    const rec = appData.records[k];
+    const m = rec?.pom || 0;
+    dataVal.push(m);
+  }
+  const ctxTrend = document.getElementById("chartTrend").getContext("2d");
+  chartTrend = new Chart(ctxTrend,{
+    type:"line",
+    data:{
+      labels,
+      datasets:[{
+        label:"当日专注分钟",
+        data:dataVal,
+        borderColor:chartColorPrimary,
+        backgroundColor:chartColorLight,
+        fill:true,
+        tension:0.3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:chartColorText}}},
+      scales:{y:{grid:{color:"rgba(200,170,150,0.2)"}}}
+    }
+  })
 }
 
 // Modal
@@ -220,7 +316,7 @@ function openModal(type, payload){
       const today = new Date().toISOString().slice(0,10);
       if(!appData.records[today]) appData.records[today] = {review:"",tasks:[],pom:0};
       appData.records[today].review = txt;
-      save();closeModal();
+      save();closeModal();renderTrendChart();
     }
   }
   if(type==="setting"){
@@ -273,7 +369,7 @@ function saveNewCourse(){
   if(!name||!date) return;
   const id = "c_"+Date.now();
   appData.courses.push({id,name,examDate:date,enabled:true,note});
-  save();renderCourses();closeModal();
+  save();renderCourses();renderHomeCharts();closeModal();
 }
 function exportData(){
   const blob = new Blob([JSON.stringify(appData,null,2)],{type:"application/json"});
@@ -368,6 +464,10 @@ document.getElementById("toggleQuickTask").onclick = ()=>{
 document.getElementById("addQuickTaskBtn").onclick = addQuickTask;
 document.getElementById("homeStatsCard").onclick = ()=>switchView("stats");
 document.getElementById("gotoInput").onclick = ()=>openModal("addCourse");
+document.getElementById("toggleTrendBtn").onclick = ()=>{
+  const card = document.getElementById("trendCardBody");
+  card.style.display = card.style.display === "none" ? "block":"none";
+}
 
 // Init
 function initAll(){
@@ -377,5 +477,6 @@ function initAll(){
   renderPomodoro();
   renderPet();
   renderHeatmap();
+  renderHomeCharts();
 }
 initAll();
