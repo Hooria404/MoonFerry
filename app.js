@@ -598,7 +598,7 @@ function ballCapacity() {
 
 // 按屏幕容量反推生成间隔，保证 2.5 小时（9000000ms）左右铺满整屏
 function ballPaceMs() {
-  return Math.min(60000, Math.max(2500, Math.round(9000000 / ballCapacity())));
+  return Math.min(60000, Math.max(2500, Math.round(3600000 / ballCapacity())));
 }
 
 function startTimer() {
