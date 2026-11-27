@@ -802,6 +802,25 @@ button { -webkit-tap-highlight-color: transparent; }
   opacity: .62;
 }
 
+/* 球堆到高处时，中间垫一层柔和米白，保证数字和记录卡还看得清 */
+#ballsBg::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(840px, 94vw);
+  height: min(680px, 92vh);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    closest-side,
+    rgba(253,249,243,.95) 0%,
+    rgba(253,249,243,.9) 55%,
+    rgba(253,249,243,.55) 78%,
+    rgba(253,249,243,0) 100%
+  );
+  pointer-events: none;
+}
+
 #timerOverlay .timer-container {
   position: relative;
   z-index: 2;
