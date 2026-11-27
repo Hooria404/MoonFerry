@@ -3,12 +3,27 @@ const STORAGE_KEY = 'studyroom_data_v1';
 const SCHEMA_VERSION = 1;
 
 const defaultCourses = [
-  { id: 'aidm7320', name: 'AIDM7320 传播学基础', examDate: '2026-12-20', enabled: true, note: '闭卷考试，12月20日。' },
-  { id: 'aidm7360', name: 'AIDM7360 大数据管理', examDate: '2026-12-09', enabled: true, note: '一张A4 cheat sheet' },
-  { id: 'aidm7390', name: 'AIDM7390 数据挖掘', examDate: '2026-12-18', enabled: true, note: '一张A4 cheat sheet' },
-  { id: 'aidm7330', name: 'AIDM7330 编程与数据科学', examDate: '2026-12-13', enabled: true, note: 'Takehome考试。' },
-  { id: 'comm7020', name: 'COMM7020 传播研究方法', examDate: '2026-12-17', enabled: true, note: '闭卷考试。' }
+  { id: 'aidm7320', name: 'AIDM7320 传播学基础', examDate: '2026-12-20', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '闭卷考试，12月20日。' },
+  { id: 'aidm7360', name: 'AIDM7360 大数据管理', examDate: '2026-12-09', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '一张A4 cheat sheet' },
+  { id: 'aidm7390', name: 'AIDM7390 数据挖掘', examDate: '2026-12-18', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '一张A4 cheat sheet' },
+  { id: 'aidm7330', name: 'AIDM7330 编程与数据科学', examDate: '2026-12-13', examTime: '', format: 'Take-home', chapters: '', enabled: true, note: 'Takehome考试。' },
+  { id: 'comm7020', name: 'COMM7020 传播研究方法', examDate: '2026-12-17', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '闭卷考试。' }
 ];
+
+// 兼容旧数据：补齐编辑字段
+function normalizeCourses() {
+  if (!Array.isArray(appData.courses)) appData.courses = [];
+  appData.courses.forEach((c, i) => {
+    if (!c.id) c.id = 'c_' + Date.now() + '_' + i;
+    if (typeof c.name !== 'string') c.name = '未命名科目';
+    if (typeof c.examDate !== 'string') c.examDate = '';
+    if (typeof c.examTime !== 'string') c.examTime = '';
+    if (typeof c.format !== 'string') c.format = '';
+    if (typeof c.chapters !== 'string') c.chapters = '';
+    if (typeof c.note !== 'string') c.note = '';
+    if (typeof c.enabled !== 'boolean') c.enabled = true;
+  });
+}
 
 let appData = {
   courses: JSON.parse(JSON.stringify(defaultCourses)),
@@ -166,6 +181,7 @@ function load() {
   } else {
     if(!Array.isArray(appData.focusSessions)) appData.focusSessions = [];
   }
+  normalizeCourses();
 }
 
 // ========== 视图切换 ==========
@@ -194,6 +210,30 @@ function updateClock() {
 }
 
 // ========== 首页：科目 & 复习建议 ==========
+// 章节文本压成一行，用于列表缩略展示
+function shortChapters(text, max) {
+  if (!text) return '';
+  const oneLine = String(text).replace(/\s*\n+\s*/g, ' / ').trim();
+  const limit = max || 30;
+  return oneLine.length > limit ? oneLine.slice(0, limit) + '…' : oneLine;
+}
+
+function courseMetaLine(c, withDays) {
+  const days = daysUntil(c.examDate);
+  const parts = [];
+  if (c.examDate) parts.push('📅 ' + c.examDate);
+  if (c.examTime) parts.push('🕐 ' + c.examTime);
+  if (withDays !== false) parts.push(days > 0 ? days + ' 天后' : (days === 0 ? '今天考试' : '已结束'));
+  return parts.join(' · ');
+}
+
+function courseTagsHtml(c, chapterLimit) {
+  const tags = [];
+  if (c.format) tags.push(`<span class="fmt-badge">${escapeHtml(c.format)}</span>`);
+  if (c.chapters) tags.push(`<span class="chapter-chip">范围：${escapeHtml(shortChapters(c.chapters, chapterLimit || 30))}</span>`);
+  return tags.length ? `<div class="course-tags">${tags.join('')}</div>` : '';
+}
+
 function renderCourses() {
   const grid = document.getElementById('courseGrid');
   if(!grid) return;
@@ -206,13 +246,14 @@ function renderCourses() {
 
   grid.innerHTML = enabled.map(c => {
     const days = daysUntil(c.examDate);
-    return `<div class="course-item" data-id="${c.id}">
+    return `<div class="course-item" data-id="${c.id}" title="点击查看并编辑">
       <div class="course-item-head">
         <input type="checkbox" class="cb-enable" data-id="${c.id}" checked style="accent-color:var(--primary);">
         <span class="course-name">${escapeHtml(c.name)}</span>
       </div>
       <div class="course-countdown">${days > 0 ? days + ' 天' : '已结束'}</div>
-      <div class="course-date">📅 ${c.examDate}</div>
+      <div class="course-date">📅 ${c.examDate}${c.examTime ? ' · ' + escapeHtml(c.examTime) : ''}</div>
+      ${courseTagsHtml(c, 20)}
     </div>`;
   }).join('');
 
@@ -221,12 +262,16 @@ function renderCourses() {
       e.stopPropagation();
       const c = appData.courses.find(x => x.id === cb.dataset.id);
       if (c) c.enabled = cb.checked;
-      save(); renderCourses(); updateProgress(); renderCharts(); renderAdvice(); renderPlan();
+      save(); renderCourses(); updateProgress(); renderCharts(); renderAdvice(); renderPlan(); renderCourseManage();
     };
+    cb.onclick = (e) => e.stopPropagation();
   });
 
-  document.querySelectorAll('.course-item').forEach(item => {
-    item.onclick = () => openCourseDetail(item.dataset.id);
+  document.querySelectorAll('#courseGrid .course-item').forEach(item => {
+    item.onclick = (e) => {
+      if (e.target.closest('input')) return;
+      openCourseDetail(item.dataset.id);
+    };
   });
 
   updateProgress();
@@ -276,57 +321,92 @@ function renderPlan() {
   const enabled = appData.courses.filter(c => c.enabled).sort((a,b) => daysUntil(a.examDate) - daysUntil(b.examDate));
   if (enabled.length === 0) { list.innerHTML = `<div class="empty-hint">暂无启用的科目</div>`; return; }
   list.innerHTML = enabled.map(c => `
-    <div class="course-item" style="margin-bottom:12px; cursor:default;">
+    <div class="course-item" style="margin-bottom:12px; cursor:pointer;" data-plan-id="${c.id}">
       <div class="course-item-head" style="justify-content:space-between;">
         <span class="course-name">${escapeHtml(c.name)}</span>
-        <span style="color:var(--primary);font-size:13px;">${daysUntil(c.examDate) > 0 ? daysUntil(c.examDate) + ' 天后' : (daysUntil(c.examDate) === 0 ? '今天考试' : '考试已结束')}</span>
+        <span class="course-actions">
+          <span style="color:var(--primary);font-size:13px;">${daysUntil(c.examDate) > 0 ? daysUntil(c.examDate) + ' 天后' : (daysUntil(c.examDate) === 0 ? '今天考试' : '考试已结束')}</span>
+          <button class="btn-chip btn-plan-edit" data-id="${c.id}">✎ 编辑</button>
+        </span>
       </div>
-      <div style="font-size:13px;color:var(--text-light);margin-top:8px;white-space:pre-line;">${escapeHtml(c.note)}</div>
+      <div class="course-date" style="margin-top:4px;">${courseMetaLine(c, false)}</div>
+      ${courseTagsHtml(c, 60)}
+      ${c.note ? `<div style="font-size:13px;color:var(--text-light);margin-top:8px;white-space:pre-line;">${escapeHtml(c.note)}</div>` : ''}
     </div>
   `).join('');
+
+  list.querySelectorAll('.btn-plan-edit').forEach(btn => {
+    btn.onclick = (e) => { e.stopPropagation(); openCourseFormModal(btn.dataset.id); };
+  });
+  list.querySelectorAll('[data-plan-id]').forEach(item => {
+    item.onclick = (e) => { if (!e.target.closest('button')) openCourseDetail(item.dataset.planId); };
+  });
+}
+
+function refreshCourseViews() {
+  renderCourses();
+  renderCourseManage();
+  renderAdvice();
+  renderPlan();
+  renderCalendar();
+  updateProgress();
 }
 
 function renderCourseManage() {
   const list = document.getElementById('courseManageList');
   if(!list) return;
   if(appData.courses.length === 0) { list.innerHTML = `<p style="color:var(--text-light);font-size:14px;">暂无科目</p>`; return; }
-  list.innerHTML = appData.courses.map(c => {
-    const days = daysUntil(c.examDate);
-    return `<div class="course-item" style="margin-bottom:10px; cursor:default;">
+  list.innerHTML = `<div class="manage-hint">点一下整行、或点右侧「✎ 编辑」，就能改日期、时间、考试形式、章节范围等全部内容。</div>` +
+  appData.courses.map(c => {
+    return `<div class="course-item course-row" data-id="${c.id}">
       <div class="course-item-head">
-        <input type="checkbox" class="cb-manage" data-id="${c.id}" ${c.enabled ? 'checked' : ''} style="accent-color:var(--primary);cursor:pointer;">
-        <div style="flex:1;">
+        <input type="checkbox" class="cb-manage" data-id="${c.id}" ${c.enabled ? 'checked' : ''} aria-label="是否启用该科目" style="accent-color:var(--primary);cursor:pointer;">
+        <div class="course-main">
           <div class="course-name">${escapeHtml(c.name)}</div>
-          <div class="course-date">📅 ${c.examDate} · ${days > 0 ? days + '天后' : '已结束'}</div>
+          <div class="course-date">${courseMetaLine(c)}</div>
+          ${courseTagsHtml(c, 36)}
         </div>
-        <button class="btn-link btn-edit" data-id="${c.id}" style="color:var(--primary); margin-right:8px;">编辑</button>
-        <button class="btn-link btn-del" data-id="${c.id}" style="color:#d9534f;">删除</button>
+        <div class="course-actions">
+          <button class="btn-chip btn-edit" data-id="${c.id}">✎ 编辑</button>
+          <button class="btn-chip ghost btn-del" data-id="${c.id}">删除</button>
+        </div>
       </div>
     </div>`;
   }).join('');
 
-  document.querySelectorAll('.cb-manage').forEach(cb => {
+  const rows = list.querySelectorAll('.course-row');
+  rows.forEach(row => {
+    row.onclick = (e) => {
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      openCourseFormModal(row.dataset.id);
+    };
+  });
+
+  list.querySelectorAll('.cb-manage').forEach(cb => {
+    cb.onclick = (e) => e.stopPropagation();
     cb.onchange = () => {
       const c = appData.courses.find(x => x.id === cb.dataset.id);
       if (c) c.enabled = cb.checked;
-      save(); renderCourses(); renderAdvice(); renderPlan();
+      save(); renderCourses(); renderAdvice(); renderPlan(); renderCourseManage(); updateProgress();
     };
   });
 
-  document.querySelectorAll('.btn-edit').forEach(btn => {
+  list.querySelectorAll('.btn-edit').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      openEditCourseModal(btn.dataset.id);
+      openCourseFormModal(btn.dataset.id);
     };
   });
 
-  document.querySelectorAll('.btn-del').forEach(btn => {
-    btn.onclick = () => {
+  list.querySelectorAll('.btn-del').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
       if(confirm('确定删除该科目吗？')) {
         appData.courses = appData.courses.filter(c => c.id !== btn.dataset.id);
-        save(); renderCourseManage(); renderCourses(); renderAdvice(); renderPlan();
+        save(); renderCourses(); renderCourseManage(); renderAdvice(); renderPlan(); renderCalendar(); updateProgress();
+        showToast('科目已删除');
       }
-    }
+    };
   });
 }
 
@@ -906,40 +986,97 @@ function openCourseDetail(id) {
   const c = appData.courses.find(x => x.id === id);
   if (!c) return;
   const days = daysUntil(c.examDate);
+  const countdownText = days > 0 ? '还剩 ' + days + ' 天' : (days === 0 ? '就是今天' : '已结束');
   openModal(c.name, `
-    <p style="margin-bottom:12px;font-size:14px;">📅 考试日期：${c.examDate}（${days > 0 ? '还剩 ' + days + ' 天' : '已结束'}）</p>
-    <div style="white-space:pre-line; line-height:1.8; color:var(--text); font-size:14px;">${escapeHtml(c.note)}</div>
+    <div class="detail-grid">
+      <div><small>考试日期</small><b>${escapeHtml(c.examDate || '未填写')}</b><em>${countdownText}</em></div>
+      <div><small>考试时间</small><b>${escapeHtml(c.examTime || '未填写')}</b></div>
+      <div><small>考试形式</small><b>${escapeHtml(c.format || '未填写')}</b></div>
+    </div>
+    <div class="detail-block">
+      <label class="form-label">考试章节 / 复习范围</label>
+      <div class="detail-text">${c.chapters ? escapeHtml(c.chapters) : '<span class="muted">还没写，点下面的「编辑」补上</span>'}</div>
+    </div>
+    <div class="detail-block">
+      <label class="form-label">备注</label>
+      <div class="detail-text">${c.note ? escapeHtml(c.note) : '<span class="muted">暂无备注</span>'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-default" id="btnDetailClose">关闭</button>
+      <button class="btn-primary" id="btnDetailEdit" style="flex:1;">✎ 编辑这些内容</button>
+    </div>
   `);
+  document.getElementById('btnDetailClose').onclick = closeModal;
+  document.getElementById('btnDetailEdit').onclick = () => openCourseFormModal(id);
 }
 
-function openEditCourseModal(id) {
-  const c = appData.courses.find(x => x.id === id);
+// ========== 科目编辑表单（新增 / 编辑共用） ==========
+const FORMAT_PRESETS = ['闭卷', '开卷', 'Take-home', '线上机考', '课程论文', '口试/答辩'];
+
+function courseFormHtml(c) {
+  return `
+    <div class="form-grid">
+      <div>
+        <label class="form-label">科目名称</label>
+        <input id="fCourseName" value="${escapeHtml(c.name || '')}" placeholder="例如：AIDM7360 大数据管理">
+      </div>
+      <div>
+        <label class="form-label">考试日期</label>
+        <input id="fCourseDate" type="date" value="${c.examDate || ''}">
+      </div>
+      <div>
+        <label class="form-label">考试时间</label>
+        <input id="fCourseTime" value="${escapeHtml(c.examTime || '')}" placeholder="例如：14:00–16:30">
+      </div>
+      <div>
+        <label class="form-label">考试形式</label>
+        <input id="fCourseFormat" list="courseFormatList" value="${escapeHtml(c.format || '')}" placeholder="闭卷 / 开卷 / Take-home…">
+        <datalist id="courseFormatList">${FORMAT_PRESETS.map(f => `<option value="${f}"></option>`).join('')}</datalist>
+      </div>
+    </div>
+    <label class="form-label">考试章节 / 复习范围（一行一章）</label>
+    <textarea id="fCourseChapters" class="ta-small" placeholder="Ch1 大数据概论&#10;Ch2 Hadoop 与 MapReduce">${escapeHtml(c.chapters || '')}</textarea>
+    <label class="form-label">其他备注（考场、可带物品等）</label>
+    <textarea id="fCourseNote" class="ta-small" placeholder="例如：可带一张 A4 cheat sheet">${escapeHtml(c.note || '')}</textarea>
+    <div class="modal-actions">
+      <button class="btn-default" id="btnCancelCourse">取消</button>
+      <button class="btn-primary" id="btnSaveCourse" style="flex:1;">保存</button>
+    </div>
+  `;
+}
+
+function openCourseFormModal(id) {
+  const isNew = !id;
+  const c = isNew
+    ? { id: '', name: '', examDate: '', examTime: '', format: '', chapters: '', note: '', enabled: true }
+    : appData.courses.find(x => x.id === id);
   if (!c) return;
-  openModal('编辑科目', `
-    <label class="form-label">科目名称</label>
-    <input id="editCourseName" value="${escapeHtml(c.name)}">
-    <label class="form-label">考试日期</label>
-    <input id="editCourseDate" type="date" value="${c.examDate}">
-    <label class="form-label">备注/考点</label>
-    <textarea id="editCourseNote">${escapeHtml(c.note)}</textarea>
-    <button class="btn-primary" id="btnUpdateCourse" style="width:100%;margin-top:8px;">保存修改</button>
-  `);
-  document.getElementById('btnUpdateCourse').onclick = () => {
-    const name = document.getElementById('editCourseName').value.trim();
-    const date = document.getElementById('editCourseDate').value;
-    const note = document.getElementById('editCourseNote').value.trim();
-    if (!name || !date) { alert('请填写名称和日期'); return; }
-    c.name = name;
-    c.examDate = date;
-    c.note = note;
-    save(); 
-    renderCourseManage(); 
-    renderCourses(); 
-    renderAdvice(); 
-    renderPlan(); 
-    renderCalendar();
+
+  openModal(isNew ? '新增科目' : '编辑科目', courseFormHtml(c));
+
+  document.getElementById('btnCancelCourse').onclick = () => {
+    if (isNew) closeModal(); else openCourseDetail(id);
+  };
+
+  document.getElementById('btnSaveCourse').onclick = () => {
+    const name = document.getElementById('fCourseName').value.trim();
+    const date = document.getElementById('fCourseDate').value;
+    const time = document.getElementById('fCourseTime').value.trim();
+    const format = document.getElementById('fCourseFormat').value.trim();
+    const chapters = document.getElementById('fCourseChapters').value.trim();
+    const note = document.getElementById('fCourseNote').value.trim();
+    if (!name) { alert('请填写科目名称'); document.getElementById('fCourseName').focus(); return; }
+    if (!date) { alert('请选择考试日期'); document.getElementById('fCourseDate').focus(); return; }
+
+    if (isNew) {
+      appData.courses.push({ id: 'c_' + Date.now(), name, examDate: date, examTime: time, format, chapters, note, enabled: true });
+    } else {
+      Object.assign(c, { name, examDate: date, examTime: time, format, chapters, note });
+    }
+    save();
+    refreshCourseViews();
     closeModal();
-    showToast('科目已更新');
+    showToast(isNew ? '科目已添加' : '科目已更新');
   };
 }
 
@@ -973,7 +1110,8 @@ function openSettingsModal() {
     <input type="file" id="petDefaultFile" accept="image/*">
     <label class="form-label">专注状态图</label>
     <input type="file" id="petFocusFile" accept="image/*">
-    <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;">
+    <div class="manage-hint" style="margin-top:16px;">当前版本 v3 · 已启用分时段问候与科目内容编辑</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="btnSaveSettings" style="flex:1;">保存</button>
       <button class="btn-default" id="btnExport">导出</button>
       <button class="btn-default" id="btnImport">导入</button>
@@ -1040,47 +1178,97 @@ function readImg(e, key) {
 }
 
 function openAddCourseModal() {
-  openModal('新增科目', `
-    <label class="form-label">科目名称</label>
-    <input id="newCourseName" placeholder="例如：COMM7020">
-    <label class="form-label">考试日期</label>
-    <input id="newCourseDate" type="date">
-    <label class="form-label">备注/考点</label>
-    <textarea id="newCourseNote" placeholder="考试形式、复习范围..."></textarea>
-    <button class="btn-primary" id="btnSaveCourse" style="width:100%;margin-top:8px;">保存科目</button>
-  `);
-  document.getElementById('btnSaveCourse').onclick = () => {
-    const name = document.getElementById('newCourseName').value.trim();
-    const date = document.getElementById('newCourseDate').value;
-    const note = document.getElementById('newCourseNote').value.trim();
-    if (!name || !date) { alert('请填写名称和日期'); return; }
-    appData.courses.push({ id: 'c_' + Date.now(), name, examDate: date, enabled: true, note });
-    save(); renderCourses(); renderCourseManage(); renderAdvice(); renderCalendar(); closeModal();
-    showToast('科目已添加');
-  };
+  openCourseFormModal(null);
 }
 
-// ========== 问候语 & 桌宠 ==========
+// ========== 问候语 ==========
+// 想换文案：直接改下面每个时间段 lines 里的句子即可，不用动代码。
+// 每个时间段会按日期自动轮换其中一句，不会每次都一样。
+const GREETING_BANDS = [
+  {
+    from: 0, to: 4, label: '🌙 夜深了',
+    lines: [
+      '夜很深了，先把身体交还给睡眠。',
+      '今天没做完的，明天还有一整天。',
+      '不着急，睡一觉也是往前走。'
+    ]
+  },
+  {
+    from: 5, to: 8, label: '🌅 早安',
+    lines: [
+      '一切都很好，你听得见自己向上的声音。',
+      '先做眼前这一件小事，来得及。',
+      '你比自己以为的更幸运，也更有福气。'
+    ]
+  },
+  {
+    from: 9, to: 11, label: '☀️ 上午好',
+    lines: [
+      '我可以，我值得，我不必害怕。',
+      '专注二十分钟，抵过一整页计划。',
+      '你正在写出自己的故事，慢慢写就好。'
+    ]
+  },
+  {
+    from: 12, to: 13, label: '🌤 午安',
+    lines: [
+      '先好好吃饭，再慢慢学。',
+      '歇一会儿不是浪费，是给下午留力气。',
+      '这会儿只需要把心放下来。'
+    ]
+  },
+  {
+    from: 14, to: 17, label: '🌿 下午好',
+    lines: [
+      '请克服这个瞬间，它没有看起来那么长。',
+      '不要预支烦恼，2 小时和 8 公里以外的事先放一放。',
+      '做完一件，再做下一件。'
+    ]
+  },
+  {
+    from: 18, to: 20, label: '🌆 傍晚好',
+    lines: [
+      '天色暗下来了，你还在往前走，这就够了。',
+      '今天收个尾，剩下的交给明天。',
+      '不用把每一格都填满，留白也算进度。'
+    ]
+  },
+  {
+    from: 21, to: 23, label: '🌙 晚上好',
+    lines: [
+      '今天到这里也很好，不必把每件事都做完。',
+      '不急，你按自己的节奏来。',
+      '世界有浮力，放松就会被托举。'
+    ]
+  }
+];
+
+function dayOfYear(d) {
+  const start = new Date(d.getFullYear(), 0, 1);
+  return Math.floor((d - start) / 86400000) + 1;
+}
+
+function pickGreetingLine(hour) {
+  const band = GREETING_BANDS.find(b => hour >= b.from && hour <= b.to) || GREETING_BANDS[GREETING_BANDS.length - 1];
+  const seed = (dayOfYear(new Date()) * 3 + Math.floor(hour / 2)) % band.lines.length;
+  return { label: band.label, line: band.lines[seed] };
+}
+
 function updateGreeting() {
   const el = document.getElementById('greetingText');
+  const subEl = document.getElementById('greetingSub');
   if(!el) return;
-  
-  const hour = new Date().getHours();
-  let timeStr = '';
-  if (hour >= 5 && hour < 12) {
-    timeStr = '☀️ 早安';
-  } else if (hour >= 12 && hour < 18) {
-    timeStr = '🌤 下午好';
-  } else if (hour >= 18 && hour < 23) {
-    timeStr = '🌙 晚上好';
-  } else {
-    timeStr = '🌙 夜色渐深';
-  }
 
-  const nameStr = appData.settings.greeting ? '，' + appData.settings.greeting : '';
-  el.textContent = timeStr + nameStr + '，慢慢学';
+  const now = new Date();
+  const { label, line } = pickGreetingLine(now.getHours());
+  const nameStr = appData.settings.greeting ? '，' + appData.settings.greeting : '，慢慢学';
+
+  el.textContent = label + nameStr;
+  if (subEl) subEl.textContent = line;
+  el.dataset.band = label;
 }
 
+// ========== 桌宠 ==========
 function renderPet() {
   const w = document.getElementById('petWidget');
   const img = document.getElementById('petImg');
