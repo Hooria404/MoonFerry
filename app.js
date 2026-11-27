@@ -3,9 +3,9 @@ const STORAGE_KEY = 'studyroom_data_v1';
 const SCHEMA_VERSION = 1;
 
 const defaultCourses = [
-  { id: 'aidm7320', name: 'AIDM7320 传播学基础', examDate: '2026-12-20', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '闭卷考试，12月20日。' },
-  { id: 'aidm7360', name: 'AIDM7360 大数据管理', examDate: '2026-12-09', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '一张A4 cheat sheet' },
-  { id: 'aidm7390', name: 'AIDM7390 数据挖掘', examDate: '2026-12-18', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '一张A4 cheat sheet' },
+  { id: 'aidm7320', name: 'AIDM7320 传播学基础', examDate: '2026-12-04', examTime: '', format: '半开卷', chapters: '', enabled: true, note: '两张a4或者一张a3，半开卷考试，12月20日交final项目。' },
+  { id: 'aidm7360', name: 'AIDM7360 大数据管理', examDate: '2026-12-09', examTime: '', format: '半开卷', chapters: '', enabled: true, note: '一张A4 cheat sheet' },
+  { id: 'aidm7390', name: 'AIDM7390 数据挖掘', examDate: '2026-12-18', examTime: '', format: '半开卷', chapters: '', enabled: true, note: '一张A4 cheat sheet' },
   { id: 'aidm7330', name: 'AIDM7330 编程与数据科学', examDate: '2026-12-13', examTime: '', format: 'Take-home', chapters: '', enabled: true, note: 'Takehome考试。' },
   { id: 'comm7020', name: 'COMM7020 传播研究方法', examDate: '2026-12-17', examTime: '', format: '闭卷', chapters: '', enabled: true, note: '闭卷考试。' }
 ];
