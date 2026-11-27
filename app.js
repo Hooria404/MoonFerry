@@ -591,14 +591,15 @@ function syncFocusElapsed(now = Date.now()) {
 function ballCapacity() {
   const w = ballW || window.innerWidth || 1200;
   const h = ballH || window.innerHeight || 800;
-  const avgR = 46;                       // 大球 46~64 / 小球 26~36，加权约 46
+  // 大球 46~64（约 45%），小球 24~35（约 55%），加权平均半径约 41
+  const avgR = 41;
   const ballArea = Math.PI * avgR * avgR;
-  return Math.max(24, Math.floor((w * h * 0.60) / ballArea));
+  return Math.max(24, Math.floor((w * h * 0.75) / ballArea));
 }
 
-// 按屏幕容量反推生成间隔，保证 2.5 小时（9000000ms）左右铺满整屏
+// 按屏幕容量反推生成间隔，约 1.5 小时（5400000ms）铺满整屏
 function ballPaceMs() {
-  return Math.min(60000, Math.max(2500, Math.round(3600000 / ballCapacity())));
+  return Math.min(45000, Math.max(2500, Math.round(5400000 / ballCapacity())));
 }
 
 function startTimer() {
@@ -792,9 +793,7 @@ function renderFocusHistory() {
   }).join('');
 }
 
-// ========== 专注小球：Canvas 果冻球 ==========
-// 一颗颗从顶部受重力落下，落到球堆上时先往低处滑一点，再压扁回弹坐稳。
-// 落点按真实圆的位置算，所以不会悬空、不会重叠，大球小球自然填缝，约 2.5 小时铺满整屏。
+// ========== 专注小球：Canvas 真实滚动 + 软体果冻球 ==========
 const BALL_COLORS = ['#c9836b', '#b96a52', '#d9a68e', '#e7c5b0', '#a95740', '#cf9078', '#dfb49e', '#c1795f'];
 
 let ballsCanvas = null;
@@ -807,6 +806,7 @@ let ballTimer = null;
 let ballGuard = null;
 let ballLastTick = 0;
 let ballsAwake = 0;
+let ballCalmTimer = 0;
 
 function ballLayer() {
   const bg = document.getElementById('ballsBg');
@@ -856,76 +856,46 @@ function stopBallLoop() {
 function resetBallPile() {
   balls.length = 0;
   ballsAwake = 0;
+  ballCalmTimer = 0;
   stopBallLoop();
   if (ballsCtx && ballW && ballH) {
     ballsCtx.clearRect(0, 0, ballW, ballH);
   }
 }
 
-function wakeBall(b) {
-  b.landed = false;
-  b.vy = Math.max(20, b.vy || 0);
+function wakeBall(b, minVy) {
+  b.settled = false;
+  b.sleepTimer = 0;
+  if (typeof minVy === 'number' && b.vy < minVy) b.vy = minVy;
 }
 
-// 在 x 处竖直落球：算出停在哪，以及这个落点是不是稳的
-function restInfoAt(x, r) {
-  let rest = ballH - r;
-  const contacts = [];
+// 寻找相对低洼的投放横坐标，让球自然落向堆面低处再滚入缝隙
+function pickSpawnX(r) {
+  const pad = r + 4;
+  if (ballW <= pad * 2) return ballW * 0.5;
 
-  for (let i = 0; i < balls.length; i++) {
-    const o = balls[i];
-    if (!o.landed) continue;
+  let bestX = pad + Math.random() * (ballW - pad * 2);
+  let bestHeight = Infinity;
 
-    const dx = Math.abs(x - o.x);
-    const sum = r + o.r;
-    if (dx >= sum) continue;
-
-    const y = o.y - Math.sqrt(sum * sum - dx * dx);
-    if (y < rest - 1.5) {
-      rest = y;
-      contacts.length = 0;
-      contacts.push({ dx: dx, sum: sum });
-    } else if (y < rest + 1.5) {
-      contacts.push({ dx: dx, sum: sum });
+  for (let s = 0; s < 16; s++) {
+    const tx = pad + Math.random() * (ballW - pad * 2);
+    let colTop = ballH;
+    for (let i = 0; i < balls.length; i++) {
+      const o = balls[i];
+      const dx = Math.abs(tx - o.x);
+      const sum = r + o.r;
+      if (dx < sum) {
+        const topY = o.y - Math.sqrt(sum * sum - dx * dx);
+        if (topY < colTop) colTop = topY;
+      }
+    }
+    // 越靠下（colTop 越大）说明该处越低越空
+    if (ballH - colTop < bestHeight) {
+      bestHeight = ballH - colTop;
+      bestX = tx;
     }
   }
-
-  // 坐在两块球中间（谷里）、或者已经压到地上，才算稳
-  let solid = rest > ballH - r - 4;
-
-  if (!solid && contacts.length) {
-    if (contacts.length >= 2) {
-      solid = true;
-    } else {
-      const ratio = contacts[0].dx / contacts[0].sum;
-      solid = ratio > 0.28;   // 只有正正压在别人头顶才是不稳的
-    }
-  }
-
-  return { y: rest, solid: solid };
-}
-
-function restYAt(x, r) {
-  return restInfoAt(x, r).y;
-}
-
-// 在整屏宽度里找最空（堆得最低）又能坐稳的位置，让球像倒进去一样先填低处
-function pickLanding(x, r) {
-  let best = null;
-
-  for (let i = 0; i < 40; i++) {
-    const tx = Math.min(Math.max(r + 2, ballW * (i + Math.random()) / 40), Math.max(r, ballW - r - 2));
-    const info = restInfoAt(tx, r);
-    if (!info.solid) continue;
-    if (!best || info.y > best.y) best = { x: tx, y: info.y, solid: true };
-  }
-
-  if (!best) {
-    const info = restInfoAt(x, r);
-    best = { x: x, y: info.y, solid: info.solid };
-  }
-
-  return best;
+  return bestX;
 }
 
 function createFallingBall() {
@@ -935,30 +905,35 @@ function createFallingBall() {
   sizeBallCanvas();
   if (!ballW || !ballH) return;
 
-  const big = Math.random() < 0.62;
-  const r = big ? 46 + Math.random() * 18 : 26 + Math.random() * 10;
-  const seedX = r + 8 + Math.random() * Math.max(1, ballW - (r + 8) * 2);
-  const spot = pickLanding(seedX, r);
-
-  // 球数到顶、或者整屏都堆到顶了，就不再生成
   if (balls.length >= ballCapacity()) return;
 
-  const top = balls.reduce(function (m, b) { return Math.min(m, b.y - b.r); }, ballH);
-  if (top < r * 1.2) return;
+  let top = ballH;
+  for (let i = 0; i < balls.length; i++) {
+    if (balls[i].settled) top = Math.min(top, balls[i].y - balls[i].r);
+  }
+  if (top < 24) return;
+
+  // 大小球混合：约 45% 大球，55% 中小球，方便小球滚入大球缝隙
+  const big = Math.random() < 0.45;
+  const r = big ? 46 + Math.random() * 18 : 24 + Math.random() * 11;
+  const x = pickSpawnX(r);
+
+  ballCalmTimer = 0;
 
   balls.push({
-    x: spot.x,
-    y: -r - 14 - Math.random() * 54,
-    vx: 0,
-    vy: 30 + Math.random() * 40,
+    x: x,
+    y: -r - 12 - Math.random() * 40,
+    vx: (Math.random() - 0.5) * 36,
+    vy: 60 + Math.random() * 50,
     r: r,
+    mass: r * r,
+    angle: Math.random() * Math.PI * 2,
+    omega: (Math.random() - 0.5) * 1.5,
     color: BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)],
     def: 0,
     dv: 0,
-    landed: false,
-    tx: spot.x,
-    ty: spot.y,
-    rollDir: 0
+    settled: false,
+    sleepTimer: 0
   });
 
   startBallLoop();
@@ -971,81 +946,244 @@ function spawnBallBurst(count, gap) {
 }
 
 function stepBalls(dt) {
+  const gravity = 920;
+  const subSteps = 6;
+  const subDt = dt / subSteps;
   let awake = 0;
 
-  for (let i = 0; i < balls.length; i++) {
-    const b = balls[i];
+  for (let s = 0; s < subSteps; s++) {
+    // 1. 重力积分与位置更新
+    for (let i = 0; i < balls.length; i++) {
+      const b = balls[i];
 
-    // 压扁→回弹，收尾会轻微过冲，像果冻
-    b.dv += (-150 * b.def - 18 * b.dv) * dt;
-    b.def += b.dv * dt;
-    if (b.def > 0.34) { b.def = 0.34; b.dv = 0; }
-    if (b.def < -0.14) { b.def = -0.14; b.dv = 0; }
+      // 果冻形变弹簧回弹
+      b.dv += (-175 * b.def - 19 * b.dv) * subDt;
+      b.def += b.dv * subDt;
+      if (b.def > 0.34) { b.def = 0.34; b.dv = 0; }
+      if (b.def < -0.15) { b.def = -0.15; b.dv = 0; }
 
-    if (b.landed) {
-      if (Math.abs(b.def) > 0.004 || Math.abs(b.dv) > 0.01) awake++;
-      continue;
-    }
-
-    awake++;
-    b.vy = Math.min(1500, b.vy + 900 * dt);
-    b.y += b.vy * dt;
-
-    // 下落途中慢慢横移到落点，看起来像滚进缝隙
-    const k = Math.min(0.4, dt * 14);
-    b.x += (b.tx - b.x) * k;
-
-    if (b.x < b.r) b.x = b.r;
-    else if (b.x > ballW - b.r) b.x = ballW - b.r;
-
-    // 每帧跟着下面的球堆刷新落点，别停在过时的位置
-    const info = restInfoAt(b.x, b.r);
-    b.ty = info.y;
-
-    if (b.y >= b.ty) {
-      // 只搭到别人侧边一点，就继续顺着肩膀往低处滚
-      if (!info.solid) {
-        if (b.rollDir === 0) {
-          let left = 0, right = 0;
-          for (let j = 0; j < balls.length; j++) {
-            const o = balls[j];
-            if (!o.landed) continue;
-            if (Math.abs(o.x - b.x) > b.r + o.r) continue;
-            const dx = o.x - b.x;
-            const y = o.y - o.r;
-            if (dx < 0) left = Math.min(left || 9e9, y);
-            else right = Math.min(right || 9e9, y);
-          }
-          b.rollDir = (right <= left) ? 1 : -1;   // 往堆得低的一侧滚
-        }
-        b.x += b.rollDir * 70 * dt;
-        b.y = b.ty - 2;
-        if (b.x <= b.r + 1 || b.x >= ballW - b.r - 1) b.rollDir = -b.rollDir;
-        b.y += b.vy * dt;
+      if (b.settled && Math.abs(b.def) < 0.003 && Math.abs(b.dv) < 0.01) {
         continue;
       }
 
-      const impact = b.vy;
-      b.y = b.ty;
-      b.vy = 0;
-      b.vx = 0;
-      b.landed = true;
-      b.def = Math.min(0.32, 0.05 + impact / 1600);
-      b.dv = 0;
+      b.vy = Math.min(1600, b.vy + gravity * subDt);
+      // 轻微空气阻尼
+      b.vx *= Math.pow(0.92, subDt);
 
-      // 砸到旁边停稳的球，让它轻轻抖一下
-      const wobble = Math.min(0.16, impact / 4200);
-      if (wobble > 0.01) {
-        for (let j = 0; j < balls.length; j++) {
-          const o = balls[j];
-          if (!o.landed || o === b) continue;
-          if (Math.abs(o.x - b.x) > o.r + b.r) continue;
-          if (Math.abs(o.y - b.y) > o.r + b.r) continue;
-          if (wobble > o.def) { o.def = wobble; o.dv = 0.05; }
-          awake++;
+      b.x += b.vx * subDt;
+      b.y += b.vy * subDt;
+      b.angle += b.omega * subDt;
+
+      // 左右墙壁碰撞与滚动摩擦
+      if (b.x - b.r < 0) {
+        b.x = b.r;
+        if (b.vx < 0) {
+          b.def = Math.max(b.def, Math.min(0.22, Math.abs(b.vx) / 1400));
+          b.vx = -b.vx * 0.32;
+          b.omega = b.vy / b.r;
+        }
+      } else if (b.x + b.r > ballW) {
+        b.x = ballW - b.r;
+        if (b.vx > 0) {
+          b.def = Math.max(b.def, Math.min(0.22, Math.abs(b.vx) / 1400));
+          b.vx = -b.vx * 0.32;
+          b.omega = -b.vy / b.r;
         }
       }
+
+      // 底部地面碰撞与贴地滚动
+      if (b.y + b.r > ballH) {
+        const impact = b.vy;
+        b.y = ballH - b.r;
+        if (impact > 45) {
+          b.def = Math.max(b.def, Math.min(0.32, 0.04 + impact / 1700));
+          b.vy = impact > 140 ? -impact * 0.18 : 0;
+        } else {
+          b.vy = 0;
+        }
+        // 纯滚动关系：v_x ≈ omega * r，地面滚动摩擦让球慢慢停稳
+        const targetOmega = b.vx / b.r;
+        b.omega += (targetOmega - b.omega) * Math.min(1, subDt * 18);
+        b.vx *= Math.pow(0.08, subDt);
+        b.omega *= Math.pow(0.08, subDt);
+      }
     }
+
+    // 2. 球与球之间碰撞、沿球面滚动、软体挤压
+    for (let i = 0; i < balls.length; i++) {
+      const a = balls[i];
+      for (let j = i + 1; j < balls.length; j++) {
+        const b = balls[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const minDist = a.r + b.r;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq >= minDist * minDist || distSq < 0.0001) continue;
+
+        const dist = Math.sqrt(distSq);
+        const nx = dx / dist; // 从 a 指向 b 的单位法向量
+        const ny = dy / dist;
+        const tx = -ny;       // 单位切向量
+        const ty = nx;
+
+        const overlap = minDist - dist;
+        // 软体允许微弱挤压贴合（0.86 分离度），同时按质量反比推开
+        const invMassA = 1 / a.mass;
+        const invMassB = 1 / b.mass;
+        const invMassSum = invMassA + invMassB;
+        const corr = overlap * 0.86 / invMassSum;
+
+        a.x -= nx * corr * invMassA;
+        a.y -= ny * corr * invMassA;
+        b.x += nx * corr * invMassB;
+        b.y += ny * corr * invMassB;
+
+        // 相对速度
+        const rvx = b.vx - a.vx;
+        const rvy = b.vy - a.vy;
+        const velNormal = rvx * nx + rvy * ny;
+
+        // 只有真的撞上来才唤醒，轻微贴合不算，否则整堆永远睡不下去
+        if (Math.abs(velNormal) > 60 || overlap > (a.r + b.r) * 0.05) {
+          a.settled = false;
+          a.sleepTimer = 0;
+          b.settled = false;
+          b.sleepTimer = 0;
+        }
+
+        // 法向软体冲量（低弹性，避免像台球一样乱蹦，偏果冻/胶质）
+        if (velNormal < 0) {
+          const restitution = 0.14;
+          const jImp = -(1 + restitution) * velNormal / invMassSum;
+          const impX = jImp * nx;
+          const impY = jImp * ny;
+
+          a.vx -= impX * invMassA;
+          a.vy -= impY * invMassA;
+          b.vx += impX * invMassB;
+          b.vy += impY * invMassB;
+
+          const impactMag = Math.abs(velNormal);
+          if (impactMag > 50) {
+            const sq = Math.min(0.24, impactMag / 2200);
+            a.def = Math.max(a.def, sq * (invMassA / invMassSum) * 1.4);
+            b.def = Math.max(b.def, sq * (invMassB / invMassSum) * 1.4);
+          }
+        }
+
+        // 重力切向推力：球在另一个球斜上方时，沿圆弧顺势滚向两侧缝隙
+        const rollSlopeForce = 340 * subDt;
+        // 若 b 在 a 偏下方或侧下方，ny 较大，切向分量推动滚动
+        const aSlope = tx * 0 + ty * gravity * subDt * 0.42;
+        const bSlope = tx * 0 + ty * gravity * subDt * 0.42;
+
+        // 当一球在另一球上方（|ny| 较大且上方球在下方球之上）时，给予切向滚动引导
+        if (a.y < b.y - 4 && Math.abs(nx) > 0.12 && Math.hypot(a.vx, a.vy) > 110) {
+          const dir = nx > 0 ? -1 : 1; // a 往外侧/缝隙方向滚
+          a.vx += dir * rollSlopeForce * (b.r / (a.r + b.r)) * 1.35;
+        }
+        if (b.y < a.y - 4 && Math.abs(nx) > 0.12 && Math.hypot(b.vx, b.vy) > 110) {
+          const dir = nx > 0 ? 1 : -1;  // b 往外侧/缝隙方向滚
+          b.vx += dir * rollSlopeForce * (a.r / (a.r + b.r)) * 1.35;
+        }
+
+        // 切向摩擦与滚动耦合
+        const velTangent = rvx * tx + rvy * ty;
+        const contactSurfaceVelA = a.omega * a.r;
+        const contactSurfaceVelB = -b.omega * b.r;
+        const slipVel = velTangent - (contactSurfaceVelB - contactSurfaceVelA);
+
+        const frictionImpulse = Math.max(-60, Math.min(60, slipVel * 0.28 / invMassSum));
+        a.vx += tx * frictionImpulse * invMassA;
+        a.vy += ty * frictionImpulse * invMassA;
+        b.vx -= tx * frictionImpulse * invMassB;
+        b.vy -= ty * frictionImpulse * invMassB;
+
+        // 切向运动带动角速度自转
+        const rollTransfer = (velTangent * 0.45) / ((a.r + b.r) * 0.5);
+        a.omega += rollTransfer * (b.mass / (a.mass + b.mass)) * 2.2;
+        b.omega += rollTransfer * (a.mass / (a.mass + b.mass)) * 2.2;
+        void aSlope;
+        void bSlope;
+      }
+    }
+
+    // 限速与限自转：物理冲量本身不完美，给它一个天花板，整堆才不会被搅飞
+    for (let i = 0; i < balls.length; i++) {
+      const b = balls[i];
+      if (b.settled) continue;
+
+      const sp = Math.hypot(b.vx, b.vy);
+      if (sp > 620) { b.vx *= 620 / sp; b.vy *= 620 / sp; }
+      if (b.omega > 9) b.omega = 9;
+      else if (b.omega < -9) b.omega = -9;
+    }
+  }
+
+  // 3. 休眠判定：一段时间里几乎没挪动就停，防止整屏一直抖
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+    const deformActive = Math.abs(b.def) > 0.004 || Math.abs(b.dv) > 0.015;
+
+    if (b.lx === undefined) { b.lx = b.x; b.ly = b.y; }
+    b.sleepTimer += dt;
+
+    if (b.sleepTimer > 0.36) {
+      const moved = Math.hypot(b.x - b.lx, b.y - b.ly);
+      const slow = Math.hypot(b.vx, b.vy) < 26;
+      if (!deformActive && (moved < 6 || slow)) {
+        b.vx = 0;
+        b.vy = 0;
+        b.omega = 0;
+        b.settled = true;
+      }
+      b.lx = b.x;
+      b.ly = b.y;
+      b.sleepTimer = 0;
+    }
+
+    if (!b.settled || deformActive) awake++;
+  }
+
+  // 已经慢下来的球给点阻尼，别靠残速一直互相推着抖
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+    if (b.settled) continue;
+    if (Math.hypot(b.vx, b.vy) < 100) {
+      b.vx *= 0.86;
+      b.vy *= 0.86;
+      b.omega *= 0.85;
+    }
+  }
+
+  // 4. 整堆都安静下来了：直接定住，省电也避免无意义地一直算
+  let maxSpeed = 0;
+  let maxSpin = 0;
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+    if (b.settled) continue;
+    maxSpeed = Math.max(maxSpeed, Math.hypot(b.vx, b.vy));
+    maxSpin = Math.max(maxSpin, Math.abs(b.omega));
+  }
+
+  if (maxSpeed < 42 && maxSpin < 3.2) {
+    ballCalmTimer += dt;
+    if (ballCalmTimer > 0.45) {
+      for (let i = 0; i < balls.length; i++) {
+        const b = balls[i];
+        b.vx = 0;
+        b.vy = 0;
+        b.omega = 0;
+        b.def = 0;
+        b.dv = 0;
+        b.settled = true;
+      }
+      awake = 0;
+      ballCalmTimer = 0;
+    }
+  } else {
+    ballCalmTimer = 0;
   }
 
   ballsAwake = awake;
@@ -1058,18 +1196,29 @@ function drawBalls() {
 
   for (let i = 0; i < balls.length; i++) {
     const b = balls[i];
-    const stretch = b.landed ? 0 : Math.min(0.14, Math.abs(b.vy) / 2600);
+    const stretch = b.settled ? 0 : Math.min(0.14, Math.max(0, b.vy) / 2600);
     const sy = (1 - b.def) * (1 + stretch);
-    const sx = (1 + b.def * 0.86) * (1 - stretch * 0.5);
+    const sx = (1 + b.def * 0.85) * (1 - stretch * 0.45);
 
     ballsCtx.save();
-    // 缩放时把底部固定住，压扁才不会浮起来
+    // 底部锚定，挤压时不会悬空
     ballsCtx.translate(b.x, b.y + b.r - b.r * sy);
     ballsCtx.scale(sx, sy);
+    ballsCtx.rotate(b.angle);
+
     ballsCtx.beginPath();
     ballsCtx.arc(0, 0, b.r, 0, Math.PI * 2);
     ballsCtx.fillStyle = b.color;
     ballsCtx.fill();
+
+    // 随球体自转的柔和果冻高光弧线，让滚动旋转更直观
+    ballsCtx.beginPath();
+    ballsCtx.arc(-b.r * 0.22, -b.r * 0.22, b.r * 0.45, -Math.PI * 0.85, -Math.PI * 0.25);
+    ballsCtx.strokeStyle = 'rgba(255, 253, 249, 0.28)';
+    ballsCtx.lineWidth = Math.max(2, b.r * 0.08);
+    ballsCtx.lineCap = 'round';
+    ballsCtx.stroke();
+
     ballsCtx.restore();
   }
 }
@@ -1102,7 +1251,6 @@ function startBallLoop() {
     ballRaf = requestAnimationFrame(frame);
   }
 
-  // 有些环境会暂停逐帧回调（省电模式、减少动态效果等），退回定时器驱动兜底
   if (!ballGuard) {
     ballGuard = setInterval(function () {
       if (ballsAwake === 0) return;
@@ -1113,31 +1261,16 @@ function startBallLoop() {
   }
 }
 
-// 打开界面 / 窗口尺寸变化：重新量画布，把已经堆好的球按新尺寸落一遍
 function refreshBallLayer() {
   if (!sizeBallCanvas()) return;
 
-  const settled = balls.filter(function (b) { return b.landed; });
-  // 从最底下那颗开始重放，新的尺寸下才能一层层重新堆回去
-  settled.sort(function (p, q) { return q.y - p.y; });
-
-  const falling = balls.filter(function (b) { return !b.landed; });
-  balls = falling;
-
-  settled.forEach(function (b) {
-    b.landed = false;
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
     b.x = Math.min(Math.max(b.r, b.x), Math.max(b.r, ballW - b.r));
-    const spot = pickLanding(b.x, b.r);
-    b.x = spot.x;
-    b.y = spot.y;
-    b.tx = spot.x;
-    b.ty = spot.y;
-    b.rollDir = 0;
-    b.landed = true;
-    b.def = 0;
-    b.dv = 0;
-    balls.push(b);
-  });
+    b.y = Math.min(b.y, ballH - b.r);
+    b.settled = false;
+    b.sleepTimer = 0;
+  }
 
   drawBalls();
   const overlay = document.getElementById('timerOverlay');
@@ -1468,7 +1601,7 @@ function openSettingsModal() {
     <input type="file" id="petDefaultFile" accept="image/*">
     <label class="form-label">专注状态图</label>
     <input type="file" id="petFocusFile" accept="image/*">
-    <div class="manage-hint" style="margin-top:16px;">当前版本 v12 · Canvas 果冻球：重力下落、压扁回弹、自然填缝，约 2.5 小时铺满整屏</div>
+    <div class="manage-hint" style="margin-top:16px;">当前版本 v13 · 真实滚动果冻球：碰撞推开、切向滚动、压扁回弹，约 1.5 小时铺满整屏</div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="btnSaveSettings" style="flex:1;">保存</button>
       <button class="btn-default" id="btnExport">导出</button>
