@@ -1,6 +1,6 @@
 // ========== 数据层 ==========
 const STORAGE_KEY = 'studyroom_data_v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const defaultCourses = [
   { id: 'aidm7320', name: 'AIDM7320 传播学基础', examDate: '2026-12-04', examTime: '', format: '半开卷', chapters: '', enabled: true, note: '两张a4或者一张a3，半开卷考试，12月20日交final项目。' },
@@ -47,9 +47,13 @@ let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 
 // ========== 工具函数 ==========
-function getTodayStr() {
-  const d = new Date();
+// 统一按“本地日期”生成 key（不要用 toISOString，那是 UTC，凌晨会被算到前一天）
+function dateKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getTodayStr() {
+  return dateKey(new Date());
 }
 
 function daysUntil(dateStr) {
@@ -246,12 +250,13 @@ function renderCourses() {
 
   grid.innerHTML = enabled.map(c => {
     const days = daysUntil(c.examDate);
+    const countdown = c.examDate ? (days > 0 ? days + ' 天' : '已结束') : '待定';
     return `<div class="course-item" data-id="${c.id}" title="点击查看并编辑">
       <div class="course-item-head">
         <input type="checkbox" class="cb-enable" data-id="${c.id}" checked style="accent-color:var(--primary);">
         <span class="course-name">${escapeHtml(c.name)}</span>
       </div>
-      <div class="course-countdown">${days > 0 ? days + ' 天' : '已结束'}</div>
+      <div class="course-countdown">${countdown}</div>
       <div class="course-date">📅 ${c.examDate}${c.examTime ? ' · ' + escapeHtml(c.examTime) : ''}</div>
       ${courseTagsHtml(c, 20)}
     </div>`;
@@ -601,13 +606,13 @@ function startTimer() {
   stopFocusIntervals();
   save();
 
-  createFallingBall();
+  spawnBallBurst(4, 260);
 
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
       createFallingBall();
     }
-  }, 5000);
+  }, 1800);
 
   timerInterval = setInterval(() => {
     if (!p.running) return;
@@ -734,9 +739,10 @@ function saveFocusSession(status) {
   if (seconds > 0) {
     const started = p.sessionStartedAt || new Date(Date.now() - seconds * 1000).toISOString();
     const ended = new Date().toISOString();
-    appData.focusSessions.unshift({ id: 'focus_' + Date.now(), date: started.slice(0,10), startedAt: started, endedAt: ended, seconds, minutes: Math.floor(seconds / 60), mode: p.mode, status });
+    const startDateKey = dateKey(new Date(started));
+    appData.focusSessions.unshift({ id: 'focus_' + Date.now(), date: startDateKey, startedAt: started, endedAt: ended, seconds, minutes: Math.floor(seconds / 60), mode: p.mode, status });
     appData.focusSessions = appData.focusSessions.slice(0, 200);
-    const rec = ensureRecord(started.slice(0,10));
+    const rec = ensureRecord(startDateKey);
     rec.pom = (rec.pom || 0) + Math.floor(seconds / 60);
   }
   p.sessionSeconds = 0;
@@ -773,9 +779,17 @@ function renderFocusHistory() {
 }
 
 // ========== 小球动画（纯 CSS 驱动） ==========
+// 一次补几颗，避免打开专注界面时先空白好几秒
+function spawnBallBurst(count, gap) {
+  for (let i = 0; i < count; i++) {
+    setTimeout(createFallingBall, i * (gap || 240));
+  }
+}
+
 function createFallingBall() {
   const container = document.getElementById('ballsBg');
-  if (!container) return;
+  const overlay = document.getElementById('timerOverlay');
+  if (!container || !overlay || !overlay.classList.contains('show')) return;
 
   const ball = document.createElement('div');
   ball.classList.add('fall-ball');
@@ -790,6 +804,11 @@ function createFallingBall() {
   ball.style.height = size + 'px';
   ball.style.setProperty('--fall-drift', drift + 'px');
   ball.style.animationDuration = duration + 'ms';
+
+  // 后台标签页动画会暂停，顺手清理过旧的球，避免越堆越多
+  while (container.childElementCount > 28) {
+    container.firstElementChild.remove();
+  }
 
   container.appendChild(ball);
 
@@ -826,6 +845,10 @@ function renderCharts() {
   const done = tasks.filter(t => t.done).length;
   const total = tasks.length;
   const ringCanvas = document.getElementById('chartRing');
+  const barCanvasPre = document.getElementById('chartBar');
+  // 首页不可见时不初始化，避免图表按 0 尺寸创建
+  if (!ringCanvas && !barCanvasPre) return;
+  if (ringCanvas && ringCanvas.clientWidth === 0) return;
   if (ringCanvas) {
     const opts = chartBaseOptions();
     opts.cutout = '72%';
@@ -867,18 +890,22 @@ function renderTrend() {
     data.push(value);
     total += value;
   }
+
+  const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  set('weekFocusMetric', total + ' 分钟');
+  set('dailyAverageMetric', Math.round(total / 7) + ' 分钟');
+  const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || appData.tasks.some(t => t.date === k && t.done))).length;
+  set('monthCheckinMetric', monthCount + ' 天');
+
   const empty = document.getElementById('trendEmpty');
   if (empty) empty.hidden = total > 0;
   canvas.parentElement.style.display = total > 0 ? 'block' : 'none';
   if (total === 0) {
     if (chartTrend) { chartTrend.destroy(); chartTrend = null; }
-    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-    set('weekFocusMetric', '0 分钟');
-    set('dailyAverageMetric', '0 分钟');
-    const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || appData.tasks.some(t => t.date === k && t.done))).length;
-    set('monthCheckinMetric', monthCount + ' 天');
     return;
   }
+  // 统计页不可见时不创建图表，等切到该页再画，避免 0 尺寸
+  if (canvas.clientWidth === 0) return;
   const opts = chartBaseOptions();
   opts.plugins.legend.display = false;
   opts.scales = {
@@ -891,11 +918,6 @@ function renderTrend() {
     data: { labels, datasets: [{ label: '专注分钟', data, borderColor: '#c88b75', backgroundColor: 'rgba(240,217,206,0.55)', fill: true, tension: 0.38, pointBackgroundColor: '#fffdf9', pointBorderColor: '#c88b75', pointBorderWidth: 2 }] },
     options: opts
   });
-  const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-  set('weekFocusMetric', total + ' 分钟');
-  set('dailyAverageMetric', Math.round(total / 7) + ' 分钟');
-  const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || appData.tasks.some(t => t.date === k && t.done))).length;
-  set('monthCheckinMetric', monthCount + ' 天');
 }
 
 function renderHeatmap() {
@@ -1110,7 +1132,7 @@ function openSettingsModal() {
     <input type="file" id="petDefaultFile" accept="image/*">
     <label class="form-label">专注状态图</label>
     <input type="file" id="petFocusFile" accept="image/*">
-    <div class="manage-hint" style="margin-top:16px;">当前版本 v3 · 已启用分时段问候与科目内容编辑</div>
+    <div class="manage-hint" style="margin-top:16px;">当前版本 v5 · 专注小球已恢复并加密</div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="btnSaveSettings" style="flex:1;">保存</button>
       <button class="btn-default" id="btnExport">导出</button>
@@ -1133,7 +1155,7 @@ function openSettingsModal() {
     const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dateKey(new Date());
     a.download = 'studyroom_backup_' + today + '.json';
     a.click();
     showToast('备份已导出');
@@ -1407,6 +1429,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('timerCloseBtn').onclick = () => {
     document.getElementById('timerOverlay').classList.remove('show');
+    const balls = document.getElementById('ballsBg');
+    if (balls) balls.innerHTML = '';
   };
 
   document.getElementById('timerToggleBtn').onclick = () => {
@@ -1465,5 +1489,8 @@ window.openTimerOverlay = function() {
   if (overlay) {
     overlay.classList.add('show');
     renderPomodoro();
+    if (appData.pomodoro.running) spawnBallBurst(3, 220);
   }
 };
+
+window.spawnBallBurst = spawnBallBurst;

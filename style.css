@@ -794,9 +794,9 @@ button { -webkit-tap-highlight-color: transparent; }
   background:
     radial-gradient(
       circle at 32% 28%,
-      rgba(255,245,239,.95),
-      rgba(200,139,117,.78) 58%,
-      rgba(200,139,117,.48)
+      rgba(255,245,239,.98),
+      rgba(200,139,117,.86) 58%,
+      rgba(200,139,117,.55)
     );
   box-shadow: 0 3px 14px rgba(200,139,117,.14);
   opacity: 0;
@@ -813,10 +813,10 @@ button { -webkit-tap-highlight-color: transparent; }
     opacity: 0;
   }
   12% {
-    opacity: .72;
+    opacity: .8;
   }
   85% {
-    opacity: .58;
+    opacity: .62;
   }
   100% {
     transform: translate3d(var(--fall-drift, 0px), 110vh, 0);
@@ -881,7 +881,15 @@ button { -webkit-tap-highlight-color: transparent; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
 .modal-body .ta-small { min-height: 84px; }
-.modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  position: sticky;
+  bottom: -24px;
+  padding: 14px 0 4px;
+  background: linear-gradient(to top, var(--card) 72%, rgba(255,253,249,0));
+}
 .modal-actions .btn-default, .modal-actions .btn-primary { flex: 1; }
 
 .detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -913,11 +921,13 @@ button { -webkit-tap-highlight-color: transparent; }
   opacity: .9;
   text-transform: uppercase;
 }
-.hero-greeting { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
 .hero-sub {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-light);
-  letter-spacing: .3px;
-  min-height: 22px;
-  transition: opacity .35s ease;
+  letter-spacing: .4px;
+  min-height: 20px;
+}
+@media (max-width: 600px) {
+  .hero-sub { font-size: 12px; letter-spacing: .2px; }
+  .hero-eyebrow { font-size: 10px; letter-spacing: 1.2px; margin-bottom: 6px; }
 }
