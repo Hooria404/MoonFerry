@@ -606,13 +606,13 @@ function startTimer() {
   stopFocusIntervals();
   save();
 
-  spawnBallBurst(4, 260);
+  spawnBallBurst(6, 220);
 
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
       createFallingBall();
     }
-  }, 1800);
+  }, 1400);
 
   timerInterval = setInterval(() => {
     if (!p.running) return;
@@ -786,33 +786,80 @@ function spawnBallBurst(count, gap) {
   }
 }
 
+function prefersReducedMotion() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+// 用 requestAnimationFrame 自己算位置，
+// 不依赖 CSS 动画（Safari 的“减少动态效果”和 keyframes 里的 CSS 变量都可能让它直接不显示）
 function createFallingBall() {
   const container = document.getElementById('ballsBg');
   const overlay = document.getElementById('timerOverlay');
   if (!container || !overlay || !overlay.classList.contains('show')) return;
 
-  const ball = document.createElement('div');
-  ball.classList.add('fall-ball');
-
-  const size = 12 + Math.random() * 10;
-  const left = 2 + Math.random() * 96;
-  const drift = Math.random() * 100 - 50;
-  const duration = 6000 + Math.random() * 2500;
-
-  ball.style.left = left + '%';
-  ball.style.width = size + 'px';
-  ball.style.height = size + 'px';
-  ball.style.setProperty('--fall-drift', drift + 'px');
-  ball.style.animationDuration = duration + 'ms';
-
-  // 后台标签页动画会暂停，顺手清理过旧的球，避免越堆越多
+  // 后台标签页或水滴太多时，顺手清理旧的
   while (container.childElementCount > 28) {
     container.firstElementChild.remove();
   }
 
+  const ball = document.createElement('div');
+  ball.className = 'fall-ball';
+
+  const size = 16 + Math.random() * 13;
+  const leftPct = 3 + Math.random() * 94;
+  const driftPx = (Math.random() * 2 - 1) * 70;
+  const duration = 5600 + Math.random() * 2800;
+
+  ball.style.width = size + 'px';
+  ball.style.height = size + 'px';
+  ball.style.left = leftPct + '%';
+  ball.style.top = '0px';
+  ball.style.transform = 'translate3d(0,-30px,0)';
+
   container.appendChild(ball);
 
-  ball.addEventListener('animationend', () => ball.remove());
+  // 系统开了“减少动态效果”：不飘动，但也让它静静出现在画面上
+  if (prefersReducedMotion()) {
+    ball.style.top = (14 + Math.random() * 68) + 'vh';
+    ball.style.transform = 'translate3d(' + driftPx + 'px, 0, 0)';
+    ball.style.opacity = '0.6';
+    setTimeout(() => { if (ball.isConnected) ball.remove(); }, 9000);
+    return;
+  }
+
+  // 保险：如果第一秒内画面完全没动（某些系统会关掉逐帧动画），
+  // 就把它变成一颗静止的点缀，至少看得见
+  let moved = false;
+  const watchdog = setTimeout(() => {
+    if (!ball.isConnected || moved) return;
+    ball.style.top = (14 + Math.random() * 68) + 'vh';
+    ball.style.transform = 'translate3d(' + driftPx + 'px, 0, 0)';
+    ball.style.opacity = '0.5';
+    setTimeout(() => { if (ball.isConnected) ball.remove(); }, 8000);
+  }, 800);
+
+  const startedAt = performance.now();
+
+  function frame(now) {
+    if (!ball.isConnected) return;
+    moved = true;
+    const p = Math.min(1, (now - startedAt) / duration);
+    const travel = (window.innerHeight + 60) * p;
+    ball.style.transform =
+      'translate3d(' + (driftPx * p).toFixed(1) + 'px,' + (-30 + travel).toFixed(1) + 'px,0)';
+    ball.style.opacity = p < 0.12
+      ? (p / 0.12 * 0.9).toFixed(3)
+      : (p > 0.86 ? Math.max(0, (1 - p) / 0.14 * 0.7) : 0.88).toFixed(3);
+
+    if (p < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      clearTimeout(watchdog);
+      ball.remove();
+    }
+  }
+
+  requestAnimationFrame(frame);
 }
 
 // ========== 图表 ==========
@@ -1132,7 +1179,7 @@ function openSettingsModal() {
     <input type="file" id="petDefaultFile" accept="image/*">
     <label class="form-label">专注状态图</label>
     <input type="file" id="petFocusFile" accept="image/*">
-    <div class="manage-hint" style="margin-top:16px;">当前版本 v5 · 专注小球已恢复并加密</div>
+    <div class="manage-hint" style="margin-top:16px;">当前版本 v6 · 专注小球改为脚本飘落，不再依赖 CSS 动画</div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="btnSaveSettings" style="flex:1;">保存</button>
       <button class="btn-default" id="btnExport">导出</button>
