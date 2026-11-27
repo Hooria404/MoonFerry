@@ -785,24 +785,64 @@ button { -webkit-tap-highlight-color: transparent; }
   display: none !important;
 }
 
-/* 豆沙色小球（位置由 JS 计算，这里只管长相） */
+/* 豆沙色小球：扁平实心，位置与堆积都由 JS 计算 */
 #timerOverlay .fall-ball {
   position: absolute;
   top: 0;
+  left: 0;
   display: block;
   border-radius: 50%;
-  background:
-    radial-gradient(
-      circle at 32% 28%,
-      rgba(255,246,240,.96),
-      rgba(193,124,102,.92) 56%,
-      rgba(184,110,88,.62)
-    );
-  box-shadow: 0 4px 16px rgba(190,124,104,.22);
+  background: #cb8b73;
   opacity: 0;
-  will-change: transform, opacity;
-  filter: blur(.2px);
   pointer-events: none;
+  will-change: transform, opacity;
+}
+
+#timerOverlay .fall-ball.settled {
+  opacity: .62;
+}
+
+#timerOverlay .timer-container {
+  position: relative;
+  z-index: 2;
+}
+
+#timerOverlay .timer-container {
+  max-height: 100vh;
+  overflow-y: auto;
+  justify-content: center;
+  padding: 28px 20px;
+  scrollbar-width: none;
+}
+
+#timerOverlay .timer-container::-webkit-scrollbar {
+  display: none;
+}
+
+#timerOverlay .timer-mode-tabs {
+  margin-bottom: 28px;
+}
+
+#timerOverlay .timer-big-time {
+  margin-bottom: 24px;
+}
+
+#timerOverlay .timer-action-row {
+  margin-top: 12px;
+}
+
+#timerOverlay .focus-history-panel {
+  margin-top: 22px;
+}
+
+#timerOverlay .focus-history-empty {
+  min-height: 8px;
+  padding: 0;
+}
+
+#timerOverlay .timer-state-pill,
+#timerOverlay .timer-support-text {
+  display: none !important;
 }
 
 /* ================== Toast 轻提示 ================== */

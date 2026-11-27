@@ -598,6 +598,7 @@ function startTimer() {
 
   if (!p.sessionStartedAt) {
     p.sessionStartedAt = new Date().toISOString();
+    resetBallPile();
   }
 
   p.running = true;
@@ -723,11 +724,7 @@ function resetTimer() {
 
   p.current = p.mode === 'countdown' ? p.target : 0;
 
-  const balls = document.getElementById('ballsBg');
-
-  if (balls) {
-    balls.innerHTML = '';
-  }
+  resetBallPile();
 
   save();
   renderPomodoro();
@@ -780,6 +777,89 @@ function renderFocusHistory() {
 
 // ========== 小球动画（纯 CSS 驱动） ==========
 // 一次补几颗，避免打开专注界面时先空白好几秒
+// ===== 小球落地后堆在底部 =====
+let pileHeights = [];
+let pileCols = 0;
+
+// 窗口尺寸变了，列数就变了；按已落定的球重新算出各列高度，别让新球叠穿
+function rebuildPileHeights(w, h, cols) {
+  const heights = new Array(cols).fill(0);
+  const container = document.getElementById('ballsBg');
+  const colW = w / cols;
+
+  if (container) {
+    container.querySelectorAll('.fall-ball.settled').forEach(b => {
+      const r = b.offsetWidth / 2;
+      const topPx = parseFloat(b.style.top) || 0;
+      const level = Math.max(0, h - topPx - r * 2);
+      const cx = (parseFloat(b.style.left) || 0) + r;
+      const c = Math.min(cols - 1, Math.max(0, Math.floor(cx / colW)));
+      heights[c] = Math.max(heights[c], level + r * 1.55);
+    });
+  }
+
+  pileCols = cols;
+  pileHeights = heights;
+}
+
+function resetBallPile() {
+  pileHeights = [];
+  pileCols = 0;
+  const container = document.getElementById('ballsBg');
+  if (container) {
+    container.querySelectorAll('.fall-ball').forEach(b => b.remove());
+  }
+}
+
+function settleBall(ball) {
+  // 已经落定的球不再结算（兜底定时器和逐帧动画可能都触发一次）
+  if (!ball || ball.classList.contains('settled')) return;
+
+  const container = document.getElementById('ballsBg');
+  if (!container || !ball.isConnected) return;
+
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  const r = ball.offsetWidth / 2;
+  if (!w || !h || !r) { ball.remove(); return; }
+
+  const cols = Math.max(10, Math.floor(w / 46));
+  if (pileCols !== cols) rebuildPileHeights(w, h, cols);
+
+  // 落点略微偏向中间，但整体还是铺开
+  let target = Math.round((0.5 + (Math.random() - 0.5) * 0.38) * (cols - 1));
+  target = Math.min(cols - 1, Math.max(0, target));
+
+  // 在附近挑最矮的一列落，堆得更自然
+  const cands = [target, target - 1, target + 1, target - 2, target + 2]
+    .filter(i => i >= 0 && i < cols)
+    .sort((a, b) => pileHeights[a] - pileHeights[b]);
+
+  const c = cands[0];
+  const level = pileHeights[c];
+
+  // 超过这个高度就不再往上叠，免得挡住上面的按钮
+  if (level > 92) {
+    ball.remove();
+    return;
+  }
+
+  const colW = w / cols;
+  const x = (c + 0.5) * colW + (Math.random() - 0.5) * colW * 0.7;
+  pileHeights[c] = level + r * 1.55;
+
+  ball.classList.add('settled');
+  ball.style.transition = 'none';
+  ball.style.left = (x - r).toFixed(1) + 'px';
+  ball.style.top = (h - level - r * 2).toFixed(1) + 'px';
+  ball.style.transform = 'translate3d(0,0,0)';
+  ball.style.opacity = '0.58';
+
+  const settled = container.querySelectorAll('.fall-ball.settled');
+  if (settled.length > 150) settled[0].remove();
+}
+window.resetBallPile = resetBallPile;
+
 function spawnBallBurst(count, gap) {
   for (let i = 0; i < count; i++) {
     setTimeout(createFallingBall, i * (gap || 240));
@@ -797,10 +877,9 @@ function createFallingBall() {
   const overlay = document.getElementById('timerOverlay');
   if (!container || !overlay || !overlay.classList.contains('show')) return;
 
-  // 后台标签页或水滴太多时，顺手清理旧的
-  while (container.childElementCount > 28) {
-    container.firstElementChild.remove();
-  }
+  // 空中的球太多时，顺手清理最早的（已落定的不算）
+  const flying = container.querySelectorAll('.fall-ball:not(.settled)');
+  if (flying.length > 16) flying[0].remove();
 
   const ball = document.createElement('div');
   ball.className = 'fall-ball';
@@ -818,12 +897,9 @@ function createFallingBall() {
 
   container.appendChild(ball);
 
-  // 系统开了“减少动态效果”：不飘动，但也让它静静出现在画面上
+  // 系统开了“减少动态效果”：不做飘落，直接落进底部的堆里
   if (prefersReducedMotion()) {
-    ball.style.top = (14 + Math.random() * 68) + 'vh';
-    ball.style.transform = 'translate3d(' + driftPx + 'px, 0, 0)';
-    ball.style.opacity = '0.6';
-    setTimeout(() => { if (ball.isConnected) ball.remove(); }, 9000);
+    settleBall(ball);
     return;
   }
 
@@ -832,16 +908,13 @@ function createFallingBall() {
   let moved = false;
   const watchdog = setTimeout(() => {
     if (!ball.isConnected || moved) return;
-    ball.style.top = (14 + Math.random() * 68) + 'vh';
-    ball.style.transform = 'translate3d(' + driftPx + 'px, 0, 0)';
-    ball.style.opacity = '0.5';
-    setTimeout(() => { if (ball.isConnected) ball.remove(); }, 8000);
+    settleBall(ball);
   }, 800);
 
   const startedAt = performance.now();
 
   function frame(now) {
-    if (!ball.isConnected) return;
+    if (!ball.isConnected || ball.classList.contains('settled')) return;
     moved = true;
     const p = Math.min(1, (now - startedAt) / duration);
     const travel = (window.innerHeight + 60) * p;
@@ -855,7 +928,7 @@ function createFallingBall() {
       requestAnimationFrame(frame);
     } else {
       clearTimeout(watchdog);
-      ball.remove();
+      settleBall(ball);
     }
   }
 
@@ -1179,7 +1252,7 @@ function openSettingsModal() {
     <input type="file" id="petDefaultFile" accept="image/*">
     <label class="form-label">专注状态图</label>
     <input type="file" id="petFocusFile" accept="image/*">
-    <div class="manage-hint" style="margin-top:16px;">当前版本 v6 · 专注小球改为脚本飘落，不再依赖 CSS 动画</div>
+    <div class="manage-hint" style="margin-top:16px;">当前版本 v8 · 扁平小球落到底部堆成小山</div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="btnSaveSettings" style="flex:1;">保存</button>
       <button class="btn-default" id="btnExport">导出</button>
@@ -1477,7 +1550,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('timerCloseBtn').onclick = () => {
     document.getElementById('timerOverlay').classList.remove('show');
     const balls = document.getElementById('ballsBg');
-    if (balls) balls.innerHTML = '';
+    if (balls) balls.querySelectorAll('.fall-ball:not(.settled)').forEach(b => b.remove());
   };
 
   document.getElementById('timerToggleBtn').onclick = () => {
@@ -1497,6 +1570,7 @@ document.addEventListener('DOMContentLoaded', () => {
       p.lastTick = null;
       p.sessionSeconds = 0;
       p.sessionStartedAt = null;
+      resetBallPile();
       p.mode = tab.dataset.mode;
       p.current = p.mode === 'countdown' ? p.target : 0;
       save();
