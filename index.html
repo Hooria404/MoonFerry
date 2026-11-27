@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>StudyRoom · 自习手账</title>
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=12">
 <script src="https://fastly.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -195,7 +195,7 @@
 
 <!-- 全屏沉浸式专注界面 -->
 <div class="timer-overlay" id="timerOverlay">
-  <div class="balls-bg" id="ballsBg"></div>
+  <div class="balls-bg" id="ballsBg"><canvas id="ballsCanvas"></canvas></div>
   <div class="timer-container">
     <div class="timer-mode-tabs">
       <button class="timer-mode-tab active" data-mode="countdown">倒计时</button>
@@ -222,6 +222,6 @@
   </div>
 </div>
 
-<script src="app.js?v=10"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

@@ -587,16 +587,18 @@ function syncFocusElapsed(now = Date.now()) {
   return elapsed;
 }
 
-// 按当前屏幕能装下多少颗球，反推生成间隔，让 2.5 小时左右填满
+// 全屏大概能堆下多少颗球（按面积与堆积率估算）
+function ballCapacity() {
+  const w = ballW || window.innerWidth || 1200;
+  const h = ballH || window.innerHeight || 800;
+  const avgR = 46;                       // 大球 46~64 / 小球 26~36，加权约 46
+  const ballArea = Math.PI * avgR * avgR;
+  return Math.max(24, Math.floor((w * h * 0.60) / ballArea));
+}
+
+// 按屏幕容量反推生成间隔，保证 2.5 小时（9000000ms）左右铺满整屏
 function ballPaceMs() {
-  const c = document.getElementById('ballsBg');
-  const w = c ? c.clientWidth : window.innerWidth;
-  const h = c ? c.clientHeight : window.innerHeight;
-  if (!w || !h) return 8000;
-  const cols = ballColumns(w);
-  const rows = Math.max(1, Math.floor((h - 76) / (23 * 1.55)));
-  const capacity = cols * rows;
-  return Math.min(16000, Math.max(3500, Math.round(9000000 / Math.max(1, capacity))));
+  return Math.min(60000, Math.max(2500, Math.round(9000000 / ballCapacity())));
 }
 
 function startTimer() {
@@ -608,9 +610,11 @@ function startTimer() {
     p.current = p.target;
   }
 
+  let freshStart = false;
   if (!p.sessionStartedAt) {
     p.sessionStartedAt = new Date().toISOString();
     resetBallPile();
+    freshStart = true;
   }
 
   p.running = true;
@@ -619,7 +623,8 @@ function startTimer() {
   stopFocusIntervals();
   save();
 
-  spawnBallBurst(3, 900);
+  // 新的一次专注才落开场球，暂停后继续不会凭空多出几颗
+  if (freshStart) spawnBallBurst(3, 550);
 
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
@@ -787,255 +792,176 @@ function renderFocusHistory() {
   }).join('');
 }
 
-// ========== 小球动画（纯 CSS 驱动） ==========
-// 一次补几颗，避免打开专注界面时先空白好几秒
-// ===== 专注小球：从顶部真实掉落、落地弹两下、再堆到底部 =====
-// 颜色、直径都随机一点；2.5 小时左右可以堆满整个屏幕
-const BALL_COLORS = ['#cb8b73', '#d59e88', '#bd7a63', '#e2bda9', '#b96e57', '#d9a48c'];
+// ========== 专注小球：Canvas 果冻球 ==========
+// 一颗颗从顶部受重力落下，落到球堆上时先往低处滑一点，再压扁回弹坐稳。
+// 落点按真实圆的位置算，所以不会悬空、不会重叠，大球小球自然填缝，约 2.5 小时铺满整屏。
+const BALL_COLORS = ['#c9836b', '#b96a52', '#d9a68e', '#e7c5b0', '#a95740', '#cf9078', '#dfb49e', '#c1795f'];
 
-let pileHeights = [];
-let pileCols = 0;
-let flyingBalls = [];
+let ballsCanvas = null;
+let ballsCtx = null;
+let ballW = 0;
+let ballH = 0;
+let balls = [];
 let ballRaf = null;
 let ballTimer = null;
-let lastBallTick = 0;
+let ballGuard = null;
+let ballLastTick = 0;
+let ballsAwake = 0;
 
-function ballColumns(w) {
-  return Math.max(12, Math.floor(w / 46));
-}
+function ballLayer() {
+  const bg = document.getElementById('ballsBg');
+  if (!bg) return null;
 
-// 窗口尺寸变了，列数就变了；按已落定的球重新算出各列高度，别让新球叠穿
-function rebuildPileHeights(w, h, cols) {
-  const heights = new Array(cols).fill(0);
-  const container = document.getElementById('ballsBg');
-  const colW = w / cols;
-
-  if (container) {
-    container.querySelectorAll('.fall-ball.settled').forEach(b => {
-      const r = b.offsetWidth / 2;
-      const topPx = parseFloat(b.style.top) || 0;
-      const level = Math.max(0, h - topPx - r * 2);
-      const cx = (parseFloat(b.style.left) || 0) + r;
-      const c = Math.min(cols - 1, Math.max(0, Math.floor(cx / colW)));
-      heights[c] = Math.max(heights[c], level + r * 1.55);
-    });
-  }
-
-  pileCols = cols;
-  pileHeights = heights;
-}
-
-function ensurePile(w, h) {
-  const cols = ballColumns(w);
-  if (pileCols !== cols) rebuildPileHeights(w, h, cols);
-}
-
-function dropIntoPile(el, w, h, col) {
-  if (!el || !el.isConnected) return;
-  ensurePile(w, h);
-
-  const c = Math.min(pileCols - 1, Math.max(0, col));
-  const r = el.offsetWidth / 2 || 20;
-  const level = pileHeights[c] || 0;
-
-  if (level > h - 70) { el.remove(); return; }
-
-  const colW = w / pileCols;
-  const px = (c + 0.5) * colW;
-
-  pileHeights[c] = level + r * 1.55;
-
-  el.classList.add('settled');
-  el.style.left = (px - r).toFixed(1) + 'px';
-  el.style.top = (h - level - r * 2).toFixed(1) + 'px';
-  el.style.transform = 'translate3d(0,0,0)';
-  el.style.opacity = '0.62';
-
-  if (el.dataset.bounce !== '1') {
-    el.dataset.bounce = '1';
-    // 落地再轻轻弹一下，扁下去又回弹
-    el.style.transition = 'transform .12s ease-out';
-    el.style.transform = 'translate3d(0,0,0) scale(1.12,.86)';
-    setTimeout(() => {
-      if (!el.isConnected) return;
-      el.style.transition = 'transform .32s cubic-bezier(.34,1.56,.64,1)';
-      el.style.transform = 'translate3d(0,0,0) scale(1)';
-    }, 120);
-  }
-
-  const settled = document.querySelectorAll('#ballsBg .fall-ball.settled');
-  if (settled.length > 1600) settled[0].remove();
-}
-
-// 每帧更新所有下落中的球
-function updateBalls(now) {
-  const container = document.getElementById('ballsBg');
-  if (!container) return;
-
-  const dt = lastBallTick ? Math.min(0.05, (now - lastBallTick) / 1000) : 0.016;
-  lastBallTick = now;
-
-  const w = container.clientWidth;
-  const h = container.clientHeight;
-  if (!w || !h) return;
-
-  for (let i = flyingBalls.length - 1; i >= 0; i--) {
-    const b = flyingBalls[i];
-
-    if (!b.el.isConnected) { flyingBalls.splice(i, 1); continue; }
-
-    const age = now - b.bornAt;
-    if (age < 260) {
-      b.el.style.opacity = (age / 260 * 0.72).toFixed(3);
-    } else if (b.el.style.opacity !== '0.72') {
-      b.el.style.opacity = '0.72';
+  if (!ballsCanvas || !ballsCanvas.isConnected) {
+    ballsCanvas = bg.querySelector('#ballsCanvas');
+    if (!ballsCanvas) {
+      ballsCanvas = document.createElement('canvas');
+      ballsCanvas.id = 'ballsCanvas';
+      bg.insertBefore(ballsCanvas, bg.firstChild);
     }
-
-    b.vy += 430 * dt;
-    b.y += b.vy * dt;
-
-    // 只在所属那列的宽度内轻轻左右晃，落点不会跑偏
-    const colW = w / pileCols;
-    const centerX = (b.col + 0.5) * colW;
-    b.x += Math.cos(age / 700 + b.phase) * 7 * dt;
-    b.x = Math.min(centerX + colW * 0.45 - b.r * 0.6, Math.max(centerX - colW * 0.45 + b.r * 0.6, b.x));
-    b.x = Math.min(w - b.r, Math.max(b.r, b.x));
-
-    if (b.squash > 0) b.squash = Math.max(0, b.squash - dt * 4.2);
-
-    const level = pileHeights[b.col] || 0;
-    const floorY = h - level - b.r;
-
-    if (b.y >= floorY) {
-      b.y = floorY;
-      b.bounces += 1;
-
-      // 弹两下、力度弱了就落进堆里
-      if (b.bounces >= 3 || Math.abs(b.vy) < 170) {
-        b.el.style.opacity = '1';
-        dropIntoPile(b.el, w, h, b.col);
-        flyingBalls.splice(i, 1);
-        continue;
-      }
-
-      b.vy = -Math.abs(b.vy) * 0.33;
-      b.squash = 1;
-    }
-
-    const sq = b.squash;
-    b.el.style.transform =
-      'translate3d(' + (b.x - b.r).toFixed(1) + 'px,' + (b.y - b.r).toFixed(1) + 'px,0) scale(' +
-      (1 + 0.14 * sq).toFixed(3) + ',' + (1 - 0.14 * sq).toFixed(3) + ')';
+    ballsCtx = ballsCanvas.getContext('2d');
   }
+  return ballsCanvas;
 }
 
-function ensureBallLoop() {
-  if (ballRaf || ballTimer) return;
+function sizeBallCanvas() {
+  const c = ballLayer();
+  if (!c || !ballsCtx) return false;
 
-  const step = (now) => {
-    ballRaf = null;
-    updateBalls(now);
-    if (flyingBalls.length) {
-      ballRaf = requestAnimationFrame(step);
-    }
-  };
+  const w = c.clientWidth;
+  const h = c.clientHeight;
+  if (!w || !h) return false;
 
-  ballRaf = requestAnimationFrame(step);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const pw = Math.round(w * dpr);
+  const ph = Math.round(h * dpr);
 
-  // 万一逐帧回调被停掉（某些浏览器/省电模式），就退回定时器驱动，动画照样跑
-  const guard = setInterval(() => {
-    if (!flyingBalls.length) { clearInterval(guard); return; }
+  if (c.width !== pw || c.height !== ph) {
+    c.width = pw;
+    c.height = ph;
+  }
+  ballsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    if (performance.now() - lastBallTick < 220) return;
+  ballW = w;
+  ballH = h;
+  return true;
+}
 
-    clearInterval(guard);
-    if (ballRaf) { cancelAnimationFrame(ballRaf); ballRaf = null; }
-    if (ballTimer) return;
-
-    ballTimer = setInterval(() => {
-      if (!flyingBalls.length) {
-        clearInterval(ballTimer);
-        ballTimer = null;
-        return;
-      }
-      updateBalls(performance.now());
-    }, 16);
-  }, 300);
+function stopBallLoop() {
+  if (ballRaf) { cancelAnimationFrame(ballRaf); ballRaf = null; }
+  if (ballTimer) { clearInterval(ballTimer); ballTimer = null; }
+  if (ballGuard) { clearInterval(ballGuard); ballGuard = null; }
 }
 
 function resetBallPile() {
-  pileHeights = [];
-  pileCols = 0;
-  flyingBalls = [];
-  lastBallTick = 0;
-
-  if (ballRaf) { cancelAnimationFrame(ballRaf); ballRaf = null; }
-  if (ballTimer) { clearInterval(ballTimer); ballTimer = null; }
-
-  const container = document.getElementById('ballsBg');
-  if (container) {
-    container.querySelectorAll('.fall-ball').forEach(b => b.remove());
+  balls.length = 0;
+  ballsAwake = 0;
+  stopBallLoop();
+  if (ballsCtx && ballW && ballH) {
+    ballsCtx.clearRect(0, 0, ballW, ballH);
   }
 }
 
-function createFallingBall() {
-  const container = document.getElementById('ballsBg');
-  const overlay = document.getElementById('timerOverlay');
-  if (!container || !overlay || !overlay.classList.contains('show')) return;
+function wakeBall(b) {
+  b.landed = false;
+  b.vy = Math.max(20, b.vy || 0);
+}
 
-  const w = container.clientWidth;
-  const h = container.clientHeight;
-  if (!w || !h) return;
+// 在 x 处竖直落球：算出停在哪，以及这个落点是不是稳的
+function restInfoAt(x, r) {
+  let rest = ballH - r;
+  const contacts = [];
 
-  ensurePile(w, h);
+  for (let i = 0; i < balls.length; i++) {
+    const o = balls[i];
+    if (!o.landed) continue;
 
-  // 所有列都堆到顶了，就不再生成
-  let lowest = Infinity;
-  for (let i = 0; i < pileHeights.length; i++) lowest = Math.min(lowest, pileHeights[i]);
-  if (lowest > h - 76) return;
+    const dx = Math.abs(x - o.x);
+    const sum = r + o.r;
+    if (dx >= sum) continue;
 
-  // 空中最多 10 颗
-  if (flyingBalls.length > 10) {
-    const old = flyingBalls.shift();
-    if (old && old.el.isConnected) old.el.remove();
+    const y = o.y - Math.sqrt(sum * sum - dx * dx);
+    if (y < rest - 1.5) {
+      rest = y;
+      contacts.length = 0;
+      contacts.push({ dx: dx, sum: sum });
+    } else if (y < rest + 1.5) {
+      contacts.push({ dx: dx, sum: sum });
+    }
   }
 
-  const r = 18 + Math.random() * 10; // 直径 36–56px
-  const colW = w / pileCols;
+  // 坐在两块球中间（谷里）、或者已经压到地上，才算稳
+  let solid = rest > ballH - r - 4;
 
-  // 在最矮的那 40% 列里随机挑，堆面就会一起往上涨，像水慢慢灌满
-  const ranked = pileHeights
-    .map((v, i) => ({ v, i }))
-    .sort((a, b) => a.v - b.v);
-  const pool = ranked.slice(0, Math.max(4, Math.floor(pileCols * 0.4)));
-  const col = pool[Math.floor(Math.random() * pool.length)].i;
+  if (!solid && contacts.length) {
+    if (contacts.length >= 2) {
+      solid = true;
+    } else {
+      const ratio = contacts[0].dx / contacts[0].sum;
+      solid = ratio > 0.28;   // 只有正正压在别人头顶才是不稳的
+    }
+  }
 
-  const x = (col + 0.5) * colW + (Math.random() - 0.5) * colW * 0.45;
+  return { y: rest, solid: solid };
+}
 
-  const el = document.createElement('div');
-  el.className = 'fall-ball';
-  el.style.width = (r * 2).toFixed(1) + 'px';
-  el.style.height = (r * 2).toFixed(1) + 'px';
-  el.style.background = BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)];
-  el.style.left = '0px';
-  el.style.top = '0px';
-  el.style.opacity = '0';
-  container.appendChild(el);
+function restYAt(x, r) {
+  return restInfoAt(x, r).y;
+}
 
-  flyingBalls.push({
-    el,
-    r,
-    col,
-    x,
-    y: -r * 2 - Math.random() * 30,
-    vy: 0,
-    bounces: 0,
-    squash: 0,
-    phase: Math.random() * Math.PI * 2,
-    bornAt: performance.now()
+// 在整屏宽度里找最空（堆得最低）又能坐稳的位置，让球像倒进去一样先填低处
+function pickLanding(x, r) {
+  let best = null;
+
+  for (let i = 0; i < 40; i++) {
+    const tx = Math.min(Math.max(r + 2, ballW * (i + Math.random()) / 40), Math.max(r, ballW - r - 2));
+    const info = restInfoAt(tx, r);
+    if (!info.solid) continue;
+    if (!best || info.y > best.y) best = { x: tx, y: info.y, solid: true };
+  }
+
+  if (!best) {
+    const info = restInfoAt(x, r);
+    best = { x: x, y: info.y, solid: info.solid };
+  }
+
+  return best;
+}
+
+function createFallingBall() {
+  const overlay = document.getElementById('timerOverlay');
+  if (!overlay || !overlay.classList.contains('show')) return;
+
+  sizeBallCanvas();
+  if (!ballW || !ballH) return;
+
+  const big = Math.random() < 0.62;
+  const r = big ? 46 + Math.random() * 18 : 26 + Math.random() * 10;
+  const seedX = r + 8 + Math.random() * Math.max(1, ballW - (r + 8) * 2);
+  const spot = pickLanding(seedX, r);
+
+  // 球数到顶、或者整屏都堆到顶了，就不再生成
+  if (balls.length >= ballCapacity()) return;
+
+  const top = balls.reduce(function (m, b) { return Math.min(m, b.y - b.r); }, ballH);
+  if (top < r * 1.2) return;
+
+  balls.push({
+    x: spot.x,
+    y: -r - 14 - Math.random() * 54,
+    vx: 0,
+    vy: 30 + Math.random() * 40,
+    r: r,
+    color: BALL_COLORS[Math.floor(Math.random() * BALL_COLORS.length)],
+    def: 0,
+    dv: 0,
+    landed: false,
+    tx: spot.x,
+    ty: spot.y,
+    rollDir: 0
   });
 
-  ensureBallLoop();
+  startBallLoop();
 }
 
 function spawnBallBurst(count, gap) {
@@ -1043,6 +969,187 @@ function spawnBallBurst(count, gap) {
     setTimeout(createFallingBall, i * (gap || 240));
   }
 }
+
+function stepBalls(dt) {
+  let awake = 0;
+
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+
+    // 压扁→回弹，收尾会轻微过冲，像果冻
+    b.dv += (-150 * b.def - 18 * b.dv) * dt;
+    b.def += b.dv * dt;
+    if (b.def > 0.34) { b.def = 0.34; b.dv = 0; }
+    if (b.def < -0.14) { b.def = -0.14; b.dv = 0; }
+
+    if (b.landed) {
+      if (Math.abs(b.def) > 0.004 || Math.abs(b.dv) > 0.01) awake++;
+      continue;
+    }
+
+    awake++;
+    b.vy = Math.min(1500, b.vy + 900 * dt);
+    b.y += b.vy * dt;
+
+    // 下落途中慢慢横移到落点，看起来像滚进缝隙
+    const k = Math.min(0.4, dt * 14);
+    b.x += (b.tx - b.x) * k;
+
+    if (b.x < b.r) b.x = b.r;
+    else if (b.x > ballW - b.r) b.x = ballW - b.r;
+
+    // 每帧跟着下面的球堆刷新落点，别停在过时的位置
+    const info = restInfoAt(b.x, b.r);
+    b.ty = info.y;
+
+    if (b.y >= b.ty) {
+      // 只搭到别人侧边一点，就继续顺着肩膀往低处滚
+      if (!info.solid) {
+        if (b.rollDir === 0) {
+          let left = 0, right = 0;
+          for (let j = 0; j < balls.length; j++) {
+            const o = balls[j];
+            if (!o.landed) continue;
+            if (Math.abs(o.x - b.x) > b.r + o.r) continue;
+            const dx = o.x - b.x;
+            const y = o.y - o.r;
+            if (dx < 0) left = Math.min(left || 9e9, y);
+            else right = Math.min(right || 9e9, y);
+          }
+          b.rollDir = (right <= left) ? 1 : -1;   // 往堆得低的一侧滚
+        }
+        b.x += b.rollDir * 70 * dt;
+        b.y = b.ty - 2;
+        if (b.x <= b.r + 1 || b.x >= ballW - b.r - 1) b.rollDir = -b.rollDir;
+        b.y += b.vy * dt;
+        continue;
+      }
+
+      const impact = b.vy;
+      b.y = b.ty;
+      b.vy = 0;
+      b.vx = 0;
+      b.landed = true;
+      b.def = Math.min(0.32, 0.05 + impact / 1600);
+      b.dv = 0;
+
+      // 砸到旁边停稳的球，让它轻轻抖一下
+      const wobble = Math.min(0.16, impact / 4200);
+      if (wobble > 0.01) {
+        for (let j = 0; j < balls.length; j++) {
+          const o = balls[j];
+          if (!o.landed || o === b) continue;
+          if (Math.abs(o.x - b.x) > o.r + b.r) continue;
+          if (Math.abs(o.y - b.y) > o.r + b.r) continue;
+          if (wobble > o.def) { o.def = wobble; o.dv = 0.05; }
+          awake++;
+        }
+      }
+    }
+  }
+
+  ballsAwake = awake;
+}
+
+function drawBalls() {
+  if (!ballsCtx || !ballW || !ballH) return;
+
+  ballsCtx.clearRect(0, 0, ballW, ballH);
+
+  for (let i = 0; i < balls.length; i++) {
+    const b = balls[i];
+    const stretch = b.landed ? 0 : Math.min(0.14, Math.abs(b.vy) / 2600);
+    const sy = (1 - b.def) * (1 + stretch);
+    const sx = (1 + b.def * 0.86) * (1 - stretch * 0.5);
+
+    ballsCtx.save();
+    // 缩放时把底部固定住，压扁才不会浮起来
+    ballsCtx.translate(b.x, b.y + b.r - b.r * sy);
+    ballsCtx.scale(sx, sy);
+    ballsCtx.beginPath();
+    ballsCtx.arc(0, 0, b.r, 0, Math.PI * 2);
+    ballsCtx.fillStyle = b.color;
+    ballsCtx.fill();
+    ballsCtx.restore();
+  }
+}
+
+function ballTick(now) {
+  if (!ballW || !ballH) return;
+
+  const raw = (now - ballLastTick) / 1000;
+  const dt = Math.min(0.05, Math.max(0.004, raw || 0.016));
+  ballLastTick = now;
+
+  stepBalls(dt);
+  drawBalls();
+
+  if (ballsAwake === 0) stopBallLoop();
+}
+
+function startBallLoop() {
+  if (!balls.length) return;
+
+  ballLastTick = performance.now();
+  ballsAwake = Math.max(ballsAwake, 1);
+
+  if (!ballRaf && !ballTimer) {
+    const frame = function (now) {
+      ballRaf = null;
+      ballTick(now);
+      if (ballsAwake > 0 && !ballTimer) ballRaf = requestAnimationFrame(frame);
+    };
+    ballRaf = requestAnimationFrame(frame);
+  }
+
+  // 有些环境会暂停逐帧回调（省电模式、减少动态效果等），退回定时器驱动兜底
+  if (!ballGuard) {
+    ballGuard = setInterval(function () {
+      if (ballsAwake === 0) return;
+      if (performance.now() - ballLastTick < 200) return;
+      if (ballRaf) { cancelAnimationFrame(ballRaf); ballRaf = null; }
+      if (!ballTimer) ballTimer = setInterval(function () { ballTick(performance.now()); }, 16);
+    }, 320);
+  }
+}
+
+// 打开界面 / 窗口尺寸变化：重新量画布，把已经堆好的球按新尺寸落一遍
+function refreshBallLayer() {
+  if (!sizeBallCanvas()) return;
+
+  const settled = balls.filter(function (b) { return b.landed; });
+  // 从最底下那颗开始重放，新的尺寸下才能一层层重新堆回去
+  settled.sort(function (p, q) { return q.y - p.y; });
+
+  const falling = balls.filter(function (b) { return !b.landed; });
+  balls = falling;
+
+  settled.forEach(function (b) {
+    b.landed = false;
+    b.x = Math.min(Math.max(b.r, b.x), Math.max(b.r, ballW - b.r));
+    const spot = pickLanding(b.x, b.r);
+    b.x = spot.x;
+    b.y = spot.y;
+    b.tx = spot.x;
+    b.ty = spot.y;
+    b.rollDir = 0;
+    b.landed = true;
+    b.def = 0;
+    b.dv = 0;
+    balls.push(b);
+  });
+
+  drawBalls();
+  const overlay = document.getElementById('timerOverlay');
+  if (balls.length && overlay && overlay.classList.contains('show')) startBallLoop();
+}
+
+window.addEventListener('resize', function () {
+  if (balls.length) refreshBallLayer();
+});
+
+window.resetBallPile = resetBallPile;
+window.refreshBallLayer = refreshBallLayer;
 
 // ========== 图表 ==========
 function chartBaseOptions() {
@@ -1361,7 +1468,7 @@ function openSettingsModal() {
     <input type="file" id="petDefaultFile" accept="image/*">
     <label class="form-label">专注状态图</label>
     <input type="file" id="petFocusFile" accept="image/*">
-    <div class="manage-hint" style="margin-top:16px;">当前版本 v10 · 大颗多色小球从顶部掉落、落地回弹，约 2.5 小时铺满整屏</div>
+    <div class="manage-hint" style="margin-top:16px;">当前版本 v12 · Canvas 果冻球：重力下落、压扁回弹、自然填缝，约 2.5 小时铺满整屏</div>
     <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
       <button class="btn-primary" id="btnSaveSettings" style="flex:1;">保存</button>
       <button class="btn-default" id="btnExport">导出</button>
@@ -1658,8 +1765,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   document.getElementById('timerCloseBtn').onclick = () => {
     document.getElementById('timerOverlay').classList.remove('show');
-    const balls = document.getElementById('ballsBg');
-    if (balls) balls.querySelectorAll('.fall-ball:not(.settled)').forEach(b => b.remove());
+    // 收起界面就先把逐帧循环停掉省电，球的状态都还在，再打开接着落
+    stopBallLoop();
   };
 
   document.getElementById('timerToggleBtn').onclick = () => {
@@ -1719,6 +1826,7 @@ window.openTimerOverlay = function() {
   if (overlay) {
     overlay.classList.add('show');
     renderPomodoro();
+    refreshBallLayer();
     if (appData.pomodoro.running) spawnBallBurst(2, 600);
   }
 };
