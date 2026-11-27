@@ -1,5 +1,6 @@
 // ========== 数据层 ==========
 const STORAGE_KEY = 'studyroom_data_v1';
+const SCHEMA_VERSION = 1;
 
 const defaultCourses = [
   { id: 'aidm7320', name: 'AIDM7320 传播学基础', examDate: '2026-12-20', enabled: true, note: '闭卷考试，12月20日。' },
@@ -25,6 +26,7 @@ let appData = {
 
 let timerInterval = null;
 let ballInterval = null;
+let toastTimer = null;
 let chartRing = null, chartBar = null, chartTrend = null;
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
@@ -48,6 +50,22 @@ function escapeHtml(str) {
   return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
+// 轻提示 toast
+function showToast(msg) {
+  let t = document.getElementById('appToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'appToast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  void t.offsetWidth; // 触发 reflow，保证 transition 生效
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
 function ensureRecord(dateStr) {
   if (!appData.records[dateStr]) {
     appData.records[dateStr] = { review: '', tasks: [], pom: 0 };
@@ -64,19 +82,19 @@ function getRecordFocus(dateStr) {
   return record ? Math.max(0, Number(record.pom) || 0) : 0;
 }
 
+// 统一的“某天是否学习”判断（单一数据源）
+function isStudiedOnDate(dateStr) {
+  if (getRecordFocus(dateStr) > 0) return true;
+  return appData.tasks.some(t => t.date === dateStr && t.done);
+}
+
 function getLearningStreak() {
   let streak = 0;
   const date = new Date();
-  const todayRecord = appData.records[getTodayStr()];
-  const todayTasks = getTodayTasks();
-  const studiedToday = getRecordFocus(getTodayStr()) > 0 || todayTasks.some(t => t.done) ||
-    (todayRecord && todayRecord.tasks && todayRecord.tasks.some(t => t.done));
-  if (!studiedToday) date.setDate(date.getDate() - 1);
+  if (!isStudiedOnDate(getTodayStr())) date.setDate(date.getDate() - 1);
   while (true) {
     const key = date.getFullYear() + '-' + String(date.getMonth()+1).padStart(2,'0') + '-' + String(date.getDate()).padStart(2,'0');
-    const record = appData.records[key];
-    const studied = getRecordFocus(key) > 0 || (record && record.tasks && record.tasks.some(t => t.done));
-    if (!studied) break;
+    if (!isStudiedOnDate(key)) break;
     streak++;
     date.setDate(date.getDate() - 1);
   }
@@ -135,6 +153,8 @@ function load() {
       if(!appData.pet) appData.pet = { enabled: false, defaultImg: '', focusImg: '', position: null };
       if(!appData.settings) appData.settings = { greeting: '' };
       if(!Array.isArray(appData.tasks)) appData.tasks = [];
+      if(!Array.isArray(appData.focusSessions)) appData.focusSessions = [];
+      
       appData.tasks.forEach((task, index) => {
         if (!task.id) task.id = 'task_' + Date.now() + '_' + index;
         if (!task.date) task.date = getTodayStr();
@@ -143,6 +163,8 @@ function load() {
       });
       if (appData.pomodoro && appData.pomodoro.running) appData.pomodoro.running = false;
     } catch(e) { console.warn('数据读取失败'); }
+  } else {
+    if(!Array.isArray(appData.focusSessions)) appData.focusSessions = [];
   }
 }
 
@@ -277,6 +299,7 @@ function renderCourseManage() {
           <div class="course-name">${escapeHtml(c.name)}</div>
           <div class="course-date">📅 ${c.examDate} · ${days > 0 ? days + '天后' : '已结束'}</div>
         </div>
+        <button class="btn-link btn-edit" data-id="${c.id}" style="color:var(--primary); margin-right:8px;">编辑</button>
         <button class="btn-link btn-del" data-id="${c.id}" style="color:#d9534f;">删除</button>
       </div>
     </div>`;
@@ -287,6 +310,13 @@ function renderCourseManage() {
       const c = appData.courses.find(x => x.id === cb.dataset.id);
       if (c) c.enabled = cb.checked;
       save(); renderCourses(); renderAdvice(); renderPlan();
+    };
+  });
+
+  document.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      openEditCourseModal(btn.dataset.id);
     };
   });
 
@@ -323,8 +353,6 @@ function renderTasks() {
       const task = appData.tasks.find(t => t.id === cb.dataset.id);
       if (!task) return;
       task.done = cb.checked;
-      const rec = ensureRecord(getTodayStr());
-      rec.tasks = tasks.map(t => ({ id: t.id, title: t.title, min: t.min, done: t.done }));
       save();
       renderTasks();
       renderDashboardMetrics();
@@ -339,8 +367,6 @@ function renderTasks() {
       if (!task) return;
       if (!confirm('要从今天的清单中移除这项任务吗？')) return;
       appData.tasks = appData.tasks.filter(t => t.id !== task.id);
-      const rec = ensureRecord(getTodayStr());
-      rec.tasks = getTodayTasks().map(t => ({ id: t.id, title: t.title, min: t.min, done: t.done }));
       save();
       renderTasks();
       renderDashboardMetrics();
@@ -427,6 +453,11 @@ function renderPomodoro() {
     resetBtn.disabled = p.running;
   }
 
+  const minusBtn = document.getElementById('timerMinus');
+  const plusBtn = document.getElementById('timerPlus');
+  if (minusBtn) minusBtn.disabled = p.running || p.mode !== 'countdown';
+  if (plusBtn) plusBtn.disabled = p.running || p.mode !== 'countdown';
+
   const petClock = document.getElementById('petClock');
   if (petClock) {
     petClock.style.display = p.running ? 'block' : 'none';
@@ -439,7 +470,6 @@ function renderPomodoro() {
 
 // ========== 专注计时控制 ==========
 
-// ✅ 彻底修复：清除定时器（绝不自己调用自己！）
 function stopFocusIntervals() {
   if (timerInterval) {
     clearInterval(timerInterval);
@@ -491,17 +521,14 @@ function startTimer() {
   stopFocusIntervals();
   save();
 
-  // 开始后立即出现第一颗小球
   createFallingBall();
 
-  // 此后每隔5秒生成一颗
   ballInterval = setInterval(() => {
     if (appData.pomodoro.running) {
       createFallingBall();
     }
   }, 5000);
 
-  // 计时器独立运行
   timerInterval = setInterval(() => {
     if (!p.running) return;
 
@@ -624,7 +651,6 @@ function resetTimer() {
 function saveFocusSession(status) {
   const p = appData.pomodoro;
   const seconds = Math.max(0, Number(p.sessionSeconds) || 0);
-  if (!appData.focusSessions) appData.focusSessions = [];
   if (seconds > 0) {
     const started = p.sessionStartedAt || new Date(Date.now() - seconds * 1000).toISOString();
     const ended = new Date().toISOString();
@@ -666,76 +692,29 @@ function renderFocusHistory() {
   }).join('');
 }
 
-// ========== 【小球部分代码原封不动保留】 ==========
+// ========== 小球动画（纯 CSS 驱动） ==========
 function createFallingBall() {
-  const overlay = document.getElementById('timerOverlay');
   const container = document.getElementById('ballsBg');
-
-  if (!overlay || !container) {
-    console.error('小球创建失败：找不到 timerOverlay 或 ballsBg');
-    return;
-  }
-
-  Object.assign(container.style, {
-    position: 'absolute',
-    inset: '0',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    pointerEvents: 'none',
-    zIndex: '1'
-  });
+  if (!container) return;
 
   const ball = document.createElement('div');
+  ball.classList.add('fall-ball');
 
   const size = 12 + Math.random() * 10;
   const left = 2 + Math.random() * 96;
   const drift = Math.random() * 100 - 50;
   const duration = 6000 + Math.random() * 2500;
 
-  Object.assign(ball.style, {
-    position: 'absolute',
-    display: 'block',
-    top: '-25px',
-    left: left + '%',
-    width: size + 'px',
-    height: size + 'px',
-    borderRadius: '50%',
-    background: 'radial-gradient(circle at 30% 25%, #f8e4dc, #c88b75)',
-    boxShadow: '0 2px 15px rgba(200,139,117,.3)',
-    opacity: '0',
-    pointerEvents: 'none',
-    zIndex: '1'
-  });
+  ball.style.left = left + '%';
+  ball.style.width = size + 'px';
+  ball.style.height = size + 'px';
+  ball.style.setProperty('--fall-drift', drift + 'px');
+  ball.style.animationDuration = duration + 'ms';
 
   container.appendChild(ball);
 
-  const animation = ball.animate([
-    {
-      transform: 'translateY(0)',
-      opacity: 0
-    },
-    {
-      transform: 'translateY(10vh)',
-      opacity: 0.85,
-      offset: 0.12
-    },
-    {
-      transform: `translate(${drift}px, ${window.innerHeight + 80}px)`,
-      opacity: 0
-    }
-  ], {
-    duration: duration,
-    easing: 'linear',
-    fill: 'forwards'
-  });
-
-  animation.onfinish = () => ball.remove();
-
-  console.log('🌸 已生成一颗专注小球');
+  ball.addEventListener('animationend', () => ball.remove());
 }
-// ========== 【小球部分结束】 ==========
-
 
 // ========== 图表 ==========
 function chartBaseOptions() {
@@ -816,7 +795,7 @@ function renderTrend() {
     const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     set('weekFocusMetric', '0 分钟');
     set('dailyAverageMetric', '0 分钟');
-    const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || (appData.records[k].tasks || []).some(t => t.done))).length;
+    const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || appData.tasks.some(t => t.date === k && t.done))).length;
     set('monthCheckinMetric', monthCount + ' 天');
     return;
   }
@@ -835,7 +814,7 @@ function renderTrend() {
   const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
   set('weekFocusMetric', total + ' 分钟');
   set('dailyAverageMetric', Math.round(total / 7) + ' 分钟');
-  const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || (appData.records[k].tasks || []).some(t => t.done))).length;
+  const monthCount = Object.keys(appData.records).filter(k => k.startsWith(getTodayStr().slice(0, 7)) && (getRecordFocus(k) > 0 || appData.tasks.some(t => t.date === k && t.done))).length;
   set('monthCheckinMetric', monthCount + ' 天');
 }
 
@@ -851,7 +830,7 @@ function renderHeatmap() {
     const cell = document.createElement('div');
     cell.className = 'heat-cell';
     const minutes = rec ? Number(rec.pom) || 0 : 0;
-    const taskDone = rec && rec.tasks ? rec.tasks.filter(t => t.done).length : 0;
+    const taskDone = appData.tasks.filter(t => t.date === k && t.done).length;
     const intensity = minutes >= 90 ? 3 : minutes >= 30 ? 2 : (minutes > 0 || taskDone > 0) ? 1 : 0;
     if (intensity) cell.classList.add('heat-level-' + intensity);
     cell.title = k + ' · 专注 ' + minutes + ' 分钟 · 完成任务 ' + taskDone + ' 项';
@@ -879,9 +858,15 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = calYear + '-' + String(calMonth+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const rec = appData.records[ds];
-    const isDone = rec && (rec.pom > 0 || (rec.tasks && rec.tasks.some(t => t.done)));
+    const isDone = isStudiedOnDate(ds);
     if (isDone) doneCount++;
-    const cls = 'cal-day' + (isDone ? ' done' : '') + (ds === todayStr ? ' today' : '');
+    
+    const examsToday = appData.courses.filter(c => c.enabled && c.examDate === ds);
+    const hasExam = examsToday.length > 0;
+    
+    let cls = 'cal-day' + (isDone ? ' done' : '') + (ds === todayStr ? ' today' : '');
+    if (hasExam) cls += ' has-exam';
+    
     html += `<div class="${cls}" data-date="${ds}">${d}</div>`;
   }
   grid.innerHTML = html;
@@ -892,9 +877,17 @@ function renderCalendar() {
       const ds = el.dataset.date;
       const rec = appData.records[ds];
       const pomText = rec ? `专注 ${Number(rec.pom) || 0} 分钟` : '无专注记录';
-      const taskText = rec && rec.tasks ? `完成任务 ${rec.tasks.filter(t=>t.done).length} 项` : '无任务记录';
+      const doneTasksCount = appData.tasks.filter(t => t.date === ds && t.done).length;
+      const taskText = `完成任务 ${doneTasksCount} 项`;
       const reviewText = rec && rec.review ? `<div class="calendar-review">${escapeHtml(rec.review)}</div>` : '<p class="muted-note">这一天还没有写下复盘。</p>';
-      openModal(ds + ' · 学习记录', `<p class="record-line">${pomText}</p><p class="record-line">${taskText}</p>${reviewText}`);
+      
+      const examsToday = appData.courses.filter(c => c.enabled && c.examDate === ds);
+      let examHtml = '';
+      if (examsToday.length > 0) {
+        examHtml = `<div style="margin-bottom:12px; padding:10px; background:#fdeeee; border-radius:8px; color:#d9534f; font-size:13px; font-weight:500;">📌 今日考试：${examsToday.map(c => escapeHtml(c.name)).join('、')}</div>`;
+      }
+      
+      openModal(ds + ' · 学习记录', `${examHtml}<p class="record-line">${pomText}</p><p class="record-line">${taskText}</p>${reviewText}`);
     };
   });
 }
@@ -919,6 +912,37 @@ function openCourseDetail(id) {
   `);
 }
 
+function openEditCourseModal(id) {
+  const c = appData.courses.find(x => x.id === id);
+  if (!c) return;
+  openModal('编辑科目', `
+    <label class="form-label">科目名称</label>
+    <input id="editCourseName" value="${escapeHtml(c.name)}">
+    <label class="form-label">考试日期</label>
+    <input id="editCourseDate" type="date" value="${c.examDate}">
+    <label class="form-label">备注/考点</label>
+    <textarea id="editCourseNote">${escapeHtml(c.note)}</textarea>
+    <button class="btn-primary" id="btnUpdateCourse" style="width:100%;margin-top:8px;">保存修改</button>
+  `);
+  document.getElementById('btnUpdateCourse').onclick = () => {
+    const name = document.getElementById('editCourseName').value.trim();
+    const date = document.getElementById('editCourseDate').value;
+    const note = document.getElementById('editCourseNote').value.trim();
+    if (!name || !date) { alert('请填写名称和日期'); return; }
+    c.name = name;
+    c.examDate = date;
+    c.note = note;
+    save(); 
+    renderCourseManage(); 
+    renderCourses(); 
+    renderAdvice(); 
+    renderPlan(); 
+    renderCalendar();
+    closeModal();
+    showToast('科目已更新');
+  };
+}
+
 function openReviewModal() {
   const today = getTodayStr();
   const rec = ensureRecord(today);
@@ -928,7 +952,11 @@ function openReviewModal() {
   `);
   document.getElementById('btnSaveReview').onclick = () => {
     rec.review = document.getElementById('reviewText').value;
-    save(); closeModal(); renderCalendar(); renderHeatmap();
+    save();
+    closeModal();
+    renderCalendar();
+    renderHeatmap();
+    showToast('复盘已保存');
   };
 }
 
@@ -957,19 +985,44 @@ function openSettingsModal() {
     appData.settings.greeting = document.getElementById('setGreet').value;
     appData.pet.enabled = document.getElementById('setPet').checked;
     save(); updateGreeting(); renderPet(); closeModal();
+    showToast('设置已保存');
   };
   document.getElementById('petDefaultFile').onchange = (e) => readImg(e, 'defaultImg');
   document.getElementById('petFocusFile').onchange = (e) => readImg(e, 'focusImg');
   document.getElementById('btnExport').onclick = () => {
-    const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'studyroom_backup.json'; a.click();
+    // 加 schemaVersion，便于未来兼容
+    const exportObj = Object.assign({ schemaVersion: SCHEMA_VERSION }, appData);
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const today = new Date().toISOString().slice(0, 10);
+    a.download = 'studyroom_backup_' + today + '.json';
+    a.click();
+    showToast('备份已导出');
   };
   document.getElementById('btnImport').onclick = () => {
-    const i = document.createElement('input'); i.type = 'file'; i.accept = '.json';
-    i.onchange = e => {
+    const i = document.createElement('input');
+    i.type = 'file';
+    i.accept = '.json';
+    i.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
       const r = new FileReader();
-      r.onload = ev => { try { appData = JSON.parse(ev.target.result); save(); location.reload(); } catch(err) { alert('格式错误'); } };
-      r.readAsText(e.target.files[0]);
+      r.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (!parsed || typeof parsed !== 'object') throw new Error('invalid');
+          const version = Number(parsed.schemaVersion) || 1;
+          if (version > SCHEMA_VERSION && !confirm('备份版本较新（v' + version + '），可能不兼容。仍要导入吗？')) return;
+          delete parsed.schemaVersion;
+          appData = parsed;
+          save();
+          location.reload();
+        } catch (err) {
+          alert('导入失败：文件格式错误');
+        }
+      };
+      r.readAsText(file);
     };
     i.click();
   };
@@ -1002,14 +1055,30 @@ function openAddCourseModal() {
     const note = document.getElementById('newCourseNote').value.trim();
     if (!name || !date) { alert('请填写名称和日期'); return; }
     appData.courses.push({ id: 'c_' + Date.now(), name, examDate: date, enabled: true, note });
-    save(); renderCourses(); renderCourseManage(); renderAdvice(); closeModal();
+    save(); renderCourses(); renderCourseManage(); renderAdvice(); renderCalendar(); closeModal();
+    showToast('科目已添加');
   };
 }
 
 // ========== 问候语 & 桌宠 ==========
 function updateGreeting() {
   const el = document.getElementById('greetingText');
-  if(el) el.textContent = '🌙 夜色渐深' + (appData.settings.greeting ? '，' + appData.settings.greeting : '') + '，慢慢学';
+  if(!el) return;
+  
+  const hour = new Date().getHours();
+  let timeStr = '';
+  if (hour >= 5 && hour < 12) {
+    timeStr = '☀️ 早安';
+  } else if (hour >= 12 && hour < 18) {
+    timeStr = '🌤 下午好';
+  } else if (hour >= 18 && hour < 23) {
+    timeStr = '🌙 晚上好';
+  } else {
+    timeStr = '🌙 夜色渐深';
+  }
+
+  const nameStr = appData.settings.greeting ? '，' + appData.settings.greeting : '';
+  el.textContent = timeStr + nameStr + '，慢慢学';
 }
 
 function renderPet() {
@@ -1087,6 +1156,7 @@ function initPetDrag() {
 // ========== 初始化 ==========
 document.addEventListener('DOMContentLoaded', () => {
   load();
+  
   if (!appData.tasks) appData.tasks = [];
   if (!appData.records) appData.records = {};
   if (!Array.isArray(appData.focusSessions)) appData.focusSessions = [];
@@ -1099,6 +1169,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!appData.settings) appData.settings = { greeting: '' };
 
   updateGreeting();
+  setInterval(updateGreeting, 60000);
   updateClock();
   setInterval(updateClock, 1000);
   
@@ -1161,7 +1232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tab.onclick = () => {
       const p = appData.pomodoro;
       if (p.mode === tab.dataset.mode) return;
-      if ((p.running || (p.sessionSeconds || 0) > 0) && !confirm('切换模式会结束并清空当前未保存的计时进度（不会计入历史），确定切换吗？')) return;
+      if ((p.running || (p.sessionSeconds || 0) > 0) && !confirm('切换模式会结束并清空当前未保存的计时进度（已保存的专注记录不受影响），确定切换吗？')) return;
       stopFocusIntervals();
       p.running = false;
       p.lastTick = null;

@@ -67,9 +67,11 @@
 
     <div class="section-title"><span>⏱ 今日状态与专注</span></div>
     <div class="three-col">
-      <!-- ✅ 注意这里：直接加上 onclick 属性，彻底避免 JS 绑定失效 -->
       <div class="card card-pom" id="homePomCard" onclick="openTimerOverlay()">
-        <div class="card-title">专注时钟 <span style="font-size:12px;color:var(--text-light);float:right;">点击全屏 ↗</span></div>
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span>专注时钟</span>
+          <span style="font-size:12px;color:var(--text-light);font-weight:400;white-space:nowrap;">点击全屏 ↗</span>
+        </div>
         <div class="pom-display">
           <div class="pom-time" id="pomTime">25:00</div>
           <div class="pom-status" id="pomStatus">准备就绪</div>
@@ -78,7 +80,6 @@
           <button class="btn-primary" id="pomStart" onclick="event.stopPropagation()">开始专注</button>
           <button class="btn-default" id="pomReset" onclick="event.stopPropagation()">重置</button>
         </div>
-
       </div>
 
       <div class="card">
@@ -192,7 +193,6 @@
 
 <!-- 全屏沉浸式专注界面 -->
 <div class="timer-overlay" id="timerOverlay">
-    <!-- ✅ 新增：专门用来承载小球的背景层 -->
   <div class="balls-bg" id="ballsBg"></div>
   <div class="timer-container">
     <div class="timer-mode-tabs">
@@ -202,11 +202,10 @@
     
     <div class="timer-big-time" id="timerBigTime">25:00</div>
     
-  
     <div class="timer-controls">
-      <button class="btn-round" id="timerMinus" aria-label="减少五分钟" style="width:48px;height:48px;font-size:24px;">−</button>
+      <button class="btn-round" id="timerMinus" title="减少5分钟" aria-label="减少五分钟" style="width:48px;height:48px;font-size:24px;">−</button>
       <button class="btn-primary" id="timerToggleBtn" style="width:132px;height:48px;font-size:16px;border-radius:24px;">开始专注</button>
-      <button class="btn-round" id="timerPlus" aria-label="增加五分钟" style="width:48px;height:48px;font-size:24px;">＋</button>
+      <button class="btn-round" id="timerPlus" title="增加5分钟" aria-label="增加五分钟" style="width:48px;height:48px;font-size:24px;">＋</button>
     </div>
     <div class="timer-action-row">
       <button class="timer-finish-btn" id="timerFinishBtn" disabled>结束本次专注</button>

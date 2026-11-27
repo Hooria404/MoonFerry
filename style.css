@@ -159,6 +159,11 @@ body {
   color: var(--primary);
   display: flex; align-items: center; justify-content: center;
 }
+.btn-round:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: var(--bg);
+}
 .btn-danger { color: #d9534f; border-color: #d9534f; }
 .btn-danger:hover { background: #fdeeee; }
 
@@ -255,12 +260,33 @@ body {
   cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.2s;
+  position: relative;
 }
 .cal-day:hover { background: var(--primary-light); }
 .cal-day.other { opacity: 0.3; cursor: default; }
 .cal-day.other:hover { background: transparent; }
 .cal-day.today { border-color: var(--primary); font-weight: 600; }
 .cal-day.done { background: var(--primary); color: #fff; }
+
+/* 日历：考试日标记 */
+.cal-day.has-exam::after {
+  content: '考';
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 9px;
+  background: #d9534f;
+  color: #fff;
+  padding: 0 3px;
+  border-radius: 4px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+.cal-day.done.has-exam::after {
+  background: #fff;
+  color: #d9534f;
+}
+
 .cal-summary { margin-top: 16px; font-size: 13px; color: var(--text-light); text-align: center; }
 
 /* 热力图 */
@@ -308,7 +334,7 @@ body {
 .modal-body textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
 .form-label { display: block; font-size: 13px; color: var(--text-light); margin-bottom: 6px; }
 
-/* ================== 桌宠（修改为悬浮头像） ================== */
+/* ================== 桌宠（唯一一份定义） ================== */
 .pet-widget {
   position: fixed; right: 20px; bottom: 20px;
   display: none;
@@ -325,14 +351,14 @@ body {
 .pet-widget img {
   width: 90px; height: 90px;
   object-fit: cover;
-  border-radius: 50%; /* 圆形头像 */
+  border-radius: 50%;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   border: 3px solid var(--card);
   background: var(--card);
 }
 .pet-clock {
   display: none;
-  margin-top: -12px; /* 气泡向上靠拢 */
+  margin-top: -12px;
   font-size: 13px;
   color: #fff;
   background: var(--primary);
@@ -392,7 +418,7 @@ body {
 }
 
 .timer-big-time {
-  font-size: 120px; /* 电脑端超大字号 */
+  font-size: 120px;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   letter-spacing: 4px;
@@ -407,7 +433,6 @@ body {
   gap: 24px;
 }
 
-/* ✅ 增加移动端适配，避免手机屏幕装不下 */
 @media (max-width: 768px) {
   .timer-big-time {
     font-size: 80px;
@@ -421,85 +446,8 @@ body {
   }
 }
 
-/* 桌宠悬浮优化 */
-.pet-widget {
-  position: fixed; right: 20px; bottom: 20px;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  z-index: 99;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: transform 0.2s;
-}
-.pet-widget.show { display: flex; }
-.pet-widget:active { cursor: grabbing; transform: scale(0.95); }
-.pet-widget img {
-  width: 90px; height: 90px;
-  object-fit: cover;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  border: 3px solid var(--card);
-  background: var(--card);
-}
-.pet-clock {
-  display: none;
-  margin-top: -12px;
-  font-size: 13px;
-  color: #fff;
-  background: var(--primary);
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-  z-index: 1;
-  position: relative;
-}
-/* ================== 专注掉落小球动画 ================== */
-.balls-bg {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  overflow: hidden;
-  pointer-events: none; /* 让鼠标点击穿透，不挡按钮 */
-  z-index: 1; /* 放在最底层 */
-}
-
-.timer-container {
-  z-index: 2; /* 保证文字和按钮在小球上面 */
-  position: relative;
-}
-
-.fall-ball {
-  position: absolute;
-  top: -40px;
-  border-radius: 50%;
-  opacity: 0;
-  /* 动画配置：下落 + 左右摇摆 */
-  animation: fallDown linear forwards;
-}
-
-@keyframes fallDown {
-  0% {
-    transform: translateY(0) translateX(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 0.8; /* 出现时的透明度 */
-  }
-  90% {
-    opacity: 0.8;
-  }
-  100% {
-    /* 掉落到屏幕底部，并随机偏移一点位置 */
-    transform: translateY(105vh) translateX(40px);
-    opacity: 0;
-  }
-}
-
 /* =========================================================
    StudyRoom · 温暖陪伴感升级
-   基础色值严格沿用 :root 中用户指定的规范，不覆盖任何变量
    ========================================================= */
 html { scroll-behavior: smooth; }
 body {
@@ -705,7 +653,6 @@ button { -webkit-tap-highlight-color: transparent; }
 .timer-finish-btn:hover:not(:disabled) { background:var(--primary-light); border-color:var(--primary-light); }
 .timer-finish-btn:disabled { opacity:.35; cursor:not-allowed; }
 .timer-support-text { margin-top:12px; color:var(--text-light); font-size:12px; }
-.fall-ball { filter:blur(.2px); opacity:.38; }
 .empty-hint { color:var(--text-light); }
 
 @media (max-width: 900px) {
@@ -784,6 +731,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
 #timerOverlay {
   isolation: isolate;
+  overflow: hidden;
 }
 
 #ballsBg {
@@ -797,60 +745,6 @@ button { -webkit-tap-highlight-color: transparent; }
 #timerOverlay .timer-container {
   position: relative;
   z-index: 2;
-}
-
-/* 豆沙色小球 */
-#timerOverlay .fall-ball {
-  position: absolute;
-  top: -24px;
-  display: block;
-
-  border-radius: 50%;
-
-  background:
-    radial-gradient(
-      circle at 32% 28%,
-      rgba(255,245,239,.95),
-      rgba(200,139,117,.78) 58%,
-      rgba(200,139,117,.48)
-    );
-
-  box-shadow: 0 3px 14px rgba(200,139,117,.14);
-
-  opacity: 0;
-
-  animation-name: studyroomBallFall;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-
-  will-change: transform, opacity;
-}
-
-/* 从屏幕上方自然飘落 */
-@keyframes studyroomBallFall {
-  0% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-
-  12% {
-    opacity: .72;
-  }
-
-  85% {
-    opacity: .58;
-  }
-
-  100% {
-    transform:
-      translate3d(var(--fall-drift, 0px), 110vh, 0);
-    opacity: 0;
-  }
-}
-
-/* 全屏专注：简洁布局，不显示多余说明 */
-#timerOverlay {
-  overflow: hidden;
 }
 
 #timerOverlay .timer-container {
@@ -891,60 +785,65 @@ button { -webkit-tap-highlight-color: transparent; }
   display: none !important;
 }
 
-/* 全屏专注小球：最终显示层 */
-#timerOverlay {
-  position: fixed !important;
-  inset: 0 !important;
-  overflow: hidden !important;
-  isolation: isolate;
+/* 豆沙色小球 */
+#timerOverlay .fall-ball {
+  position: absolute;
+  top: -24px;
+  display: block;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      rgba(255,245,239,.95),
+      rgba(200,139,117,.78) 58%,
+      rgba(200,139,117,.48)
+    );
+  box-shadow: 0 3px 14px rgba(200,139,117,.14);
+  opacity: 0;
+  animation-name: studyroomBallFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+  filter: blur(.2px);
 }
 
-#timerOverlay #ballsBg {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  overflow: hidden !important;
-  z-index: 1 !important;
-  pointer-events: none !important;
+@keyframes studyroomBallFall {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  12% {
+    opacity: .72;
+  }
+  85% {
+    opacity: .58;
+  }
+  100% {
+    transform: translate3d(var(--fall-drift, 0px), 110vh, 0);
+    opacity: 0;
+  }
 }
 
-#timerOverlay .timer-container {
-  position: relative !important;
-  z-index: 2 !important;
+/* ================== Toast 轻提示 ================== */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  transform: translate(-50%, 10px);
+  background: rgba(74, 55, 40, 0.92);
+  color: #fff;
+  padding: 10px 22px;
+  border-radius: 24px;
+  font-size: 13px;
+  z-index: 3000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s ease, transform .3s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  max-width: calc(100vw - 40px);
+  text-align: center;
 }
-
-/* 小球在文字和按钮后面，但在页面底色上面 */
-#timerOverlay #ballsBg span {
-  pointer-events: none !important;
-}
-
-/* 专注小球显示修复 */
-#timerOverlay {
-  position: fixed !important;
-  inset: 0 !important;
-  overflow: hidden !important;
-  isolation: isolate !important;
-}
-
-#timerOverlay #ballsBg {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
-  z-index: 1 !important;
-}
-
-#timerOverlay #ballsBg span {
-  position: absolute !important;
-  display: block !important;
-  border-radius: 50% !important;
-  pointer-events: none !important;
-}
-
-#timerOverlay .timer-container {
-  position: relative !important;
-  z-index: 2 !important;
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
